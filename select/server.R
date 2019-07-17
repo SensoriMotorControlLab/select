@@ -1,6 +1,4 @@
 # TO DO:
-# We should make a unique values list for trial num
-# counter will determine which index on that list we access
 
 # Define server logic required to draw a histogram
 
@@ -17,13 +15,15 @@ server <- function(input, output) {
   currentData <- reactive({
     df <- fread(input$files$datapath, stringsAsFactors = FALSE)
     
+    currentTrial$countervalue <- 1
+    
     df
     })
   
   # df containing only the current trial
   currentTrialDF <- reactive({
     df <- currentData() %>%
-      filter(trial_num == currentTrial$countervalue)
+      filter(trial_num == uniqueTrials()[currentTrial$countervalue])
     
     df
   })
@@ -31,8 +31,6 @@ server <- function(input, output) {
   uniqueTrials <- reactive({
     uniqueTrials <- currentData()$trial_num %>%
       unique()
-    
-    print(uniqueTrials)
     
     uniqueTrials
   })
@@ -64,22 +62,37 @@ server <- function(input, output) {
   
   ## Other backend stuff
   observeEvent(input$nextButton, {
-    currentTrial$countervalue <- currentTrial$countervalue + 1
+    
+    if(currentTrial$countervalue == length(uniqueTrials())){
+      currentTrial$countervalue <- 1
+    }
+    
+    else {
+      currentTrial$countervalue <- currentTrial$countervalue + 1
+    }
     
     print(currentTrial$countervalue)
   })
   
   observeEvent(input$prevButton, {
-    currentTrial$countervalue <- currentTrial$countervalue - 1
+    
+    if(currentTrial$countervalue == 1){
+      currentTrial$countervalue <- length(uniqueTrials())
+    }
+    
+    else {
+      currentTrial$countervalue <- currentTrial$countervalue - 1
+    }
     
     print(currentTrial$countervalue)
   })
   
   
   ## Things to display
-  output$data <- renderDataTable(options = list(pageLength = 5), {
+  output$data <- renderDataTable(options = list(pageLength = 6), {
     if(!is.null(input$files)){
-      currentTrialDF()
+      currentTrialDF() %>%
+        head()
       }
     })
   
@@ -92,13 +105,16 @@ server <- function(input, output) {
       
       p <- df %>%
         ggplot(aes(x = mousex_px, y = mousey_px)) +
-        geom_point() +
-        scale_y_continuous(limits = c(-50, 1000),
+        geom_point(size = 4, colour = "#ffa46b", alpha = 0.5) +
+        scale_y_continuous(limits = c(-100, 1500),
                            name = "x-position") +
         scale_x_continuous(limits = c(-800, 800),
                            name = "y-position") +
-        theme_minimal()
-        
+        coord_fixed() +
+        annotate("text", x = -500, y = 900, size = 8,
+                 label = paste("Trial: ", currentTrial$countervalue)) +
+        theme_minimal() +
+        theme(text = element_text(size=20))
       
       p
     }
