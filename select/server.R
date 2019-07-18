@@ -2,10 +2,13 @@
 
 # Define server logic required to draw a histogram
 
+
+
 server <- function(input, output) {
   
   library(data.table)
   library(tidyverse)
+  source("analysisFunctions.R")
   
   
   ## Reactive stuff: We will use these later, like functions
@@ -14,6 +17,7 @@ server <- function(input, output) {
   # read in df
   currentData <- reactive({
     df <- fread(input$files$datapath, stringsAsFactors = FALSE)
+      
     
     currentTrial$countervalue <- 1
     
@@ -35,27 +39,28 @@ server <- function(input, output) {
     uniqueTrials
   })
   
-  # using currentTrialDF, make a plottable velocity df
-  velocityDF <- reactive({
+  fitDF <- reactive({
+    
     df <- currentTrialDF()
     
+    fitDF <- df %>%
+      select(time_s, mousex_px, mousey_px)
     
+    # add a distance row
+    fitDF$distance <- df %>% 
+      transmute(mousex_px = mousex_px - homex_px, mousey_px + homey_px) %>%
+      apply(1, vector_norm)
     
+    # fit a spline to the distance data
+    fit_fun <- smooth.spline(x = fitDF$time_s, y = fitDF$distance, df = 6)
     
+    # add a spline column
+    fitDF$spline <- predict(fit_fun, fitDF$time_s)$y
     
+    # add a speed column
+    fitDF$speed <- predict(fit_fun, fitDF$time_s, deriv = 1)$y
     
-    
-    
-    
-    
-    
-    
-    
-    ## Fill this
-    
-    
-    
-    
+    fitDF
     
   })
   
@@ -89,30 +94,78 @@ server <- function(input, output) {
   
   
   ## Things to display
-  output$data <- renderDataTable(options = list(pageLength = 6), {
-    if(!is.null(input$files)){
-      currentTrialDF() %>%
-        head()
-      }
-    })
+  # output$data <- renderDataTable(options = list(pageLength = 6), {
+  #   if(!is.null(input$files)){
+  #     currentTrialDF() %>%
+  #       head()
+  #     }
+  #   })
   
+  output$reachPlot <- renderPlot( {
+    # generate bins based on input$bins from ui.R
+    if(!is.null(input$files)){
+      
+      # read in df
+      df <- fitDF()
+      
+      p <- df %>%
+        ggplot(aes(x = mousex_px, y = mousey_px)) +
+        geom_point(size = 4, colour = "#ffa46b", alpha = 0.5) +
+        geom_point(data = filter(df, speed == max(speed))[1, ], 
+                   size = 6, colour = "red", shape = 10, 
+                   stroke = 2, alpha = .5) +
+        scale_y_continuous(limits = c(-100, 1000),
+                           name = "y-position") +
+        scale_x_continuous(limits = c(-800, 800),
+                           name = "x-position") +
+        coord_fixed() +
+        annotate("text", x = -500, y = 900, size = 8,
+                 label = paste("Trial: ", currentTrial$countervalue)) +
+        theme_minimal() +
+        theme(text = element_text(size=20))
+      
+      p
+    }
+  })
+    
   output$distPlot <- renderPlot( {
     # generate bins based on input$bins from ui.R
     if(!is.null(input$files)){
       
       # read in df
-      df <- currentTrialDF()
+      df <- fitDF()
       
       p <- df %>%
-        ggplot(aes(x = mousex_px, y = mousey_px)) +
+        ggplot(aes(x = time_s, y = distance)) +
         geom_point(size = 4, colour = "#ffa46b", alpha = 0.5) +
-        scale_y_continuous(limits = c(-100, 1500),
-                           name = "x-position") +
-        scale_x_continuous(limits = c(-800, 800),
-                           name = "y-position") +
-        coord_fixed() +
-        annotate("text", x = -500, y = 900, size = 8,
-                 label = paste("Trial: ", currentTrial$countervalue)) +
+        geom_line(aes(y = spline), alpha = 0.5, size = 2) + 
+        geom_point(data = filter(df, speed == max(speed))[1, ], 
+                   size = 8, colour = "red", shape = 10, 
+                   stroke = 2, alpha = .5) +
+        scale_y_continuous(name = "distance from home") +
+        scale_x_continuous(name = "time") +
+        theme_minimal() +
+        theme(text = element_text(size=20))
+      
+      p
+    }
+  })
+  
+  output$velPlot <- renderPlot( {
+    # generate bins based on input$bins from ui.R
+    if(!is.null(input$files)){
+      
+      # read in df
+      df <- fitDF()
+      
+      p <- df %>%
+        ggplot(aes(x = time_s, y = speed)) +
+        geom_line(size = 3, alpha = .5) +
+        geom_point(data = filter(df, speed == max(speed))[1, ], 
+                   size = 8, colour = "red", shape = 10, 
+                   stroke = 2, alpha = .5) +
+        scale_y_continuous(name = "speed") +
+        scale_x_continuous(name = "time") +
         theme_minimal() +
         theme(text = element_text(size=20))
       
