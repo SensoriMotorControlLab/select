@@ -47,6 +47,7 @@ server <- function(input, output) {
     currentFile$dataList <- list()
     
     currentFile$df <- df
+    
     })
   
   # df containing only the current trial
@@ -85,16 +86,46 @@ server <- function(input, output) {
     # add a speed column
     fitDF$speed <- predict(fit_fun, fitDF$time_s, deriv = 1)$y
     
-    fitDF$selected <- 1
-    fitDF$maxV <- 0
-    
-    fitDF$maxV[fitDF$time_s == filter(fitDF, speed == max(speed))[1, ]$time_s] <- 1
-    
     
     currentTrial$fitDF <- fitDF
   })
   
+  addSelectedCols <- reactive({
+    df <- currentTrial$fitDF
+    
+    worked <- FALSE
+    
+    # make selected and maxV columns if they don't already exist in currentFile$dataList
+    # if the do exist, just pull them from there
+    try({
+    
+      if (is.null(currentFile$dataList[[currentTrial$counterValue]])){
+        df$selected <- 1
+        df$maxV <- 0
+        
+        df$maxV[df$time_s == filter(df, speed == max(speed))[1, ]$time_s] <- 1
+      }
+      else {
+        df$selected <- currentFile$dataList[[currentTrial$counterValue]]$selected
+        df$maxV <- currentFile$dataList[[currentTrial$counterValue]]$maxV
+      }
+      
+      worked <- TRUE
+    }, silent = TRUE)
+    
+    # if that dataList[[counterValue]] doesn't exist at all, the above code will not work
+    if(!worked){
+      df$selected <- 1
+      df$maxV <- 0
+      
+      df$maxV[df$time_s == filter(df, speed == max(speed))[1, ]$time_s] <- 1
+    }
+    
+    currentTrial$fitDF <- df
+    
+  })
   
+  # save button stuff 
   mergeAndSave <- reactive({
     pathToSave <- currentFile$filePath %>%
       str_sub(1, -5)
@@ -128,8 +159,6 @@ server <- function(input, output) {
     )
     
     ## add the df to list
-    # print(currentTrial$counterValue)
-    
     currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
     
     ## move to next trial
@@ -142,6 +171,9 @@ server <- function(input, output) {
       currentTrial$counterValue <- currentTrial$counterValue + 1
     }
     
+    fitDF()
+    addSelectedCols()
+    
   })
   
   # The "Previous" button
@@ -152,6 +184,7 @@ server <- function(input, output) {
     )
 
     # print(currentFile$dataList)
+    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
     
     # go to the last trial if the current trisl is "1"
     if(currentTrial$counterValue == 1){
@@ -163,6 +196,9 @@ server <- function(input, output) {
     }
     
     # print(currentTrial$counterValue)
+    # start selecting the new data
+    fitDF()
+    addSelectedCols()
     
   })
   
@@ -187,6 +223,8 @@ server <- function(input, output) {
     
     # start selecting the new data
     storeCurrentData()
+    fitDF()
+    addSelectedCols()
     
   })
   
@@ -211,6 +249,8 @@ server <- function(input, output) {
     
     # start selecting the new data
     storeCurrentData()
+    fitDF()
+    addSelectedCols()
     
   })
   
@@ -222,7 +262,11 @@ server <- function(input, output) {
            message = "Please load some data to select."))
     
     loadFilePaths()
+    
+    # start selecting the new data
     storeCurrentData()
+    fitDF()
+    addSelectedCols()
   })
   
   observeEvent(input$saveButton, {
@@ -234,6 +278,27 @@ server <- function(input, output) {
     )
     
     mergeAndSave()
+  })
+  
+  
+  # Keep/remove buttons
+  observeEvent(input$keepButton, {
+    validate(
+      need(!is.null(currentFile$df), 
+           message = "Please load some data to select.")
+    )
+    
+    currentTrial$fitDF$selected <- 1
+  })
+  
+  # Keep/remove buttons
+  observeEvent(input$removeButton, {
+    validate(
+      need(!is.null(currentFile$df), 
+           message = "Please load some data to select.")
+    )
+    
+    currentTrial$fitDF$selected <- 0
   })
   
   ## ----
@@ -257,7 +322,7 @@ server <- function(input, output) {
   output$reachPlot <- renderPlot( {
     if(!is.null(currentFile$df)) {  
       # read in df
-      df <- fitDF()
+      df <- currentTrial$fitDF
       
       p <- df %>%
         ggplot(aes(x = mousex_px, y = mousey_px)) +
@@ -275,6 +340,17 @@ server <- function(input, output) {
         theme_minimal() +
         theme(text = element_text(size=20))
       
+      if(currentTrial$fitDF$selected[1] == 1) {
+      # keep/remove colour
+        p <- p + theme(panel.background = element_rect(fill = "#8fbfa0", colour = "#8fbfa0", 
+                                                       size = 0.5, linetype = "solid"))
+      }
+      
+      else{
+        p <- p + theme(panel.background = element_rect(fill = "#bf918f", colour = "#bf918f", 
+                                                       size = 0.5, linetype = "solid"))
+      }
+      
       p
     }
   })
@@ -282,7 +358,7 @@ server <- function(input, output) {
   output$distPlot <- renderPlot( {
     if(!is.null(currentFile$df)) {  
       # read in df
-      df <- fitDF()
+      df <- currentTrial$fitDF
       
       p <- df %>%
         ggplot(aes(x = time_s, y = distance)) +
@@ -304,7 +380,7 @@ server <- function(input, output) {
     if(!is.null(currentFile$df)) {  
         
       # read in df
-      df <- fitDF()
+      df <- currentTrial$fitDF
       
       p <- df %>%
         ggplot(aes(x = time_s, y = speed)) +
@@ -357,6 +433,20 @@ server <- function(input, output) {
       else {
         paste("<b> <font size=4>", numSelected, "/", 
               length(uniqueTrials()), "</font> </b>",
+              sep = "")
+      }
+    }
+  })
+  
+  output$keepStatusTxt <- renderText( {
+    if(!is.null(currentFile$df)) {  
+      
+      if(currentTrial$fitDF$selected[1] == 1) {
+        paste("<b> <font color=\"#269148\" size=4> KEPT </font> </b>",
+              sep = "")
+      }
+      else {
+        paste("<b> <font color=\"#8c3331\" size=4> DELETED </font> </b>",
               sep = "")
       }
     }

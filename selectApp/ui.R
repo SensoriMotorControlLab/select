@@ -42,6 +42,7 @@ ui <- fluidPage(
            br(),
            h3("Current Trial: "),
            htmlOutput("currentTrialTxt", ),
+           htmlOutput("keepStatusTxt",),
            br(),
            h3("Trials Selected: "),
            htmlOutput("trialsSelectedTxt", )
