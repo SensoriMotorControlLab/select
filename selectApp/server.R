@@ -22,6 +22,7 @@ server <- function(input, output) {
   currentFile <- reactiveValues(filePath = NULL,  fileNum = 1,
                                 df = NULL, dataList = list())
   allFiles <- reactiveValues(inFile = NULL)
+  globalValues <- reactiveValues(lazyMode = FALSE)
   volumes <- c(Home = fs::path_home(), WD = '.', getVolumes()())
   
   # read in df
@@ -301,6 +302,78 @@ server <- function(input, output) {
     currentTrial$fitDF$selected <- 0
   })
   
+  
+  # The select all button
+  observeEvent(input$selectAllButton, {
+    validate(
+      need(!is.null(currentFile$df), 
+           message = "Please load some data to select.")
+    )
+    
+    for (filePath in allFiles$inFile$datapath){
+      # read the file
+      fileDF <- fread(filePath, stringsAsFactors = FALSE)
+      
+      # make empty list
+      trialList <- list()
+      trialListCounter <- 1
+      
+      for (trialNum in unique(fileDF$trial_num)){
+        trialDF <- fileDF %>% 
+          filter(trial_num == trialNum)
+        
+        fitDF <- trialDF %>%
+          select(time_s, mousex_px, mousey_px)
+        
+        # add a distance row
+        fitDF$distance <- trialDF %>% 
+          transmute(mousex_px = mousex_px - homex_px, mousey_px + homey_px) %>%
+          apply(1, vector_norm)
+        
+        # fit a spline to the distance data
+        fit_fun <- smooth.spline(x = fitDF$time_s, y = fitDF$distance, df = 7)
+        
+        # add a spline column
+        fitDF$spline <- predict(fit_fun, fitDF$time_s)$y
+        
+        # add a speed column
+        fitDF$speed <- predict(fit_fun, fitDF$time_s, deriv = 1)$y
+        
+        
+        # do the selection
+        fitDF$selected <- 1
+        fitDF$maxV <- 0
+        
+        fitDF$maxV[fitDF$time_s == filter(fitDF, speed == max(speed))[1, ]$time_s] <- 1
+        
+        # add this to list
+        trialList[[trialListCounter]] <- fitDF %>%
+          select(selected, maxV)
+        
+        trialListCounter <- trialListCounter + 1
+      }
+      
+      # merge and save
+      pathToSave <- filePath %>%
+        str_sub(1, -5)
+      
+      pathToSave <- paste(pathToSave, "selected.csv", sep = "_")
+      
+      # concatenate the selected columns
+      selected_df <- do.call(rbind, trialList)
+      
+      # add the selected_df columns to df
+      selected_df <- cbind2(fileDF, selected_df)
+      
+      # print(pathToSave)
+      
+      fwrite(selected_df, file = pathToSave)
+    }
+    
+    showNotification("Done selecting!", type = "message")
+    
+  })
+  
   ## ----
   
   # output$contents <- renderTable({
@@ -330,7 +403,7 @@ server <- function(input, output) {
         geom_point(data = filter(df, speed == max(speed))[1, ], 
                    size = 6, colour = "#8c3331", shape = 10, 
                    stroke = 2, alpha = .8) +
-        scale_y_continuous(limits = c(-100, 1000),
+        scale_y_continuous(limits = c(-600, 1000),
                            name = "y-position") +
         scale_x_continuous(limits = c(-800, 800),
                            name = "x-position") +

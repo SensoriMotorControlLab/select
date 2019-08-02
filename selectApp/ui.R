@@ -28,6 +28,7 @@ jscode <- '$(document).keyup(function(e) {
   });'
 
 ui <- fluidPage(
+
   tags$head(tags$script(HTML(jscode))),
   
   # Application title
@@ -91,7 +92,12 @@ ui <- fluidPage(
            actionButton("prevFileButton", 
                         "Previous File", icon = icon("angle-double-left")),
            actionButton("nextFileButton", 
-                        "Next File", icon = icon("angle-double-right"))
+                        "Next File", icon = icon("angle-double-right")),
+           br(),
+           hr(),
+           br(),
+           actionButton("selectAllButton",
+                        "Auto-select all files")
            ),
     
     # Show a plot of the generated distribution
