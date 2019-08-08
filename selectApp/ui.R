@@ -102,7 +102,7 @@ ui <- fluidPage(
     
     # Show a plot of the generated distribution
     column(8,
-           plotOutput("velPlot", ),
+           plotOutput("velPlot", click = clickOpts(id="velClick")),
            tableOutput("contents")
     )
   )  

@@ -25,6 +25,8 @@ server <- function(input, output) {
   globalValues <- reactiveValues(lazyMode = FALSE)
   volumes <- c(Home = fs::path_home(), WD = '.', getVolumes()())
   
+  clickOpts(id = "velClick", clip = TRUE)
+  
   # read in df
   loadFilePaths <- reactive({
     allFiles$inFile <- parseFilePaths(roots=c(volumes), input$files)
@@ -455,6 +457,8 @@ server <- function(input, output) {
       # read in df
       df <- currentTrial$fitDF
       
+      print("bleh")
+      
       p <- df %>%
         ggplot(aes(x = time_s, y = speed)) +
         geom_line(size = 3, alpha = .5) +
@@ -465,6 +469,16 @@ server <- function(input, output) {
         scale_x_continuous(name = "time") +
         theme_minimal() +
         theme(text = element_text(size=20))
+      
+      # if (!is.null(input$velClick$x)){
+      #   p <- p + 
+      #     geom_point(aes(x = input$velClick$x, 
+      #                    y = filter(df, time_s == input$velClick$x)$speed), 
+      #                size = 8, colour = "#8c3331", shape = 10, 
+      #                stroke = 2, alpha = .8)
+      # }
+      
+      print(input$velClick$x)
       
       p
     }
