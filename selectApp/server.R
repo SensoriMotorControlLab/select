@@ -20,7 +20,9 @@ server <- function(input, output) {
   ## Reactive stuff: We will use these later, like functions
   currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL) 
   currentFile <- reactiveValues(filePath = NULL,  fileNum = 1,
-                                df = NULL, dataList = list())
+                                df = NULL, dataList = list(), 
+                                min_x = NULL, max_x = NULL, 
+                                min_y = NULL, max_y = NULL)
   allFiles <- reactiveValues(inFile = NULL)
   globalValues <- reactiveValues(lazyMode = FALSE)
   volumes <- c(Home = fs::path_home(), WD = '.', getVolumes()())
@@ -37,6 +39,12 @@ server <- function(input, output) {
     currentFile$filePath <- as.character(allFiles$inFile$datapath[currentFile$fileNum])
     
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
+    
+    # get maximum x and y (for plotting)
+    currentFile$min_x <- min(df$mousex_px)
+    currentFile$max_x <- max(df$mousex_px)
+    currentFile$min_y <- min(df$mousey_px)
+    currentFile$max_y <- max(df$mousey_px)
     
     # print(currentFile$filePath)
     
@@ -97,6 +105,7 @@ server <- function(input, output) {
     df <- currentTrial$fitDF
     
     worked <- FALSE
+    
     
     # make selected and maxV columns if they don't already exist in currentFile$dataList
     # if the do exist, just pull them from there
@@ -277,14 +286,16 @@ server <- function(input, output) {
       need(!is.null(currentFile$df), 
            message = "Please load some data to select."),
       need(length(currentFile$dataList) == length(uniqueTrials()), 
-           message = "Finish selecting all data.")
+           showNotification("Please finish selecting", type = "error"))
     )
     
     mergeAndSave()
+    
+    showNotification("Saved!", type = "message")
   })
   
   
-  # Keep/remove buttons
+  # Keep button
   observeEvent(input$keepButton, {
     validate(
       need(!is.null(currentFile$df), 
@@ -294,7 +305,7 @@ server <- function(input, output) {
     currentTrial$fitDF$selected <- 1
   })
   
-  # Keep/remove buttons
+  # Remove buttons
   observeEvent(input$removeButton, {
     validate(
       need(!is.null(currentFile$df), 
@@ -376,21 +387,29 @@ server <- function(input, output) {
     
   })
   
+  # change maxV point
+  observeEvent(input$velClick,{
+    # print(paste("x = ", input$velClick$x))
+    currentTrial$fitDF$maxV <- 0
+    currentTrial$fitDF$maxV[which.min(abs(currentTrial$fitDF$time_s -input$velClick$x))] <- 1
+    
+  })
+  
+  # the set max velocity button
+  observeEvent(input$setMaxVButton, {
+    
+    validate(
+      need(!is.null(currentFile$df), "Please load some data to select.")
+    )
+    
+    ## add the df to list
+    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
+    
+  })
+  
+  
+  
   ## ----
-  
-  # output$contents <- renderTable({
-  #   inFile <- parseFilePaths(roots=volumes, input$files)
-  #   
-  #   print(inFile)
-  #   
-  #   if(NROW(inFile)){
-  #     df <- fread(as.character(inFile$datapath))
-  #     head(df)
-  #   }
-  # })
-  # 
-  
-  
   
   ## plots
   
@@ -402,12 +421,14 @@ server <- function(input, output) {
       p <- df %>%
         ggplot(aes(x = mousex_px, y = mousey_px)) +
         geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
-        geom_point(data = filter(df, speed == max(speed))[1, ], 
+        geom_point(data = filter(df, maxV == 1), 
                    size = 6, colour = "#8c3331", shape = 10, 
                    stroke = 2, alpha = .8) +
-        scale_y_continuous(limits = c(-600, 1000),
+        scale_y_continuous(limits = c(currentFile$min_y - (currentFile$max_y - currentFile$min_y) * .1, 
+                                      currentFile$max_y + (currentFile$max_y - currentFile$min_y) * .1),
                            name = "y-position") +
-        scale_x_continuous(limits = c(-800, 800),
+        scale_x_continuous(limits = c(currentFile$min_x - (currentFile$max_x - currentFile$min_x) * .1, 
+                                      currentFile$max_x + (currentFile$max_x - currentFile$min_x) * .1),
                            name = "x-position") +
         coord_fixed() +
         # annotate("text", x = -500, y = 900, size = 8,
@@ -415,6 +436,7 @@ server <- function(input, output) {
         theme_minimal() +
         theme(text = element_text(size=20))
       
+      # change background colour
       if(currentTrial$fitDF$selected[1] == 1) {
       # keep/remove colour
         p <- p + theme(panel.background = element_rect(fill = "#8fbfa0", colour = "#8fbfa0", 
@@ -439,7 +461,7 @@ server <- function(input, output) {
         ggplot(aes(x = time_s, y = distance)) +
         geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
         geom_line(aes(y = spline), alpha = 0.5, size = 2) + 
-        geom_point(data = filter(df, speed == max(speed))[1, ], 
+        geom_point(data = filter(df, maxV == 1), 
                    size = 8, colour = "#8c3331", shape = 10, 
                    stroke = 2, alpha = .8) +
         scale_y_continuous(name = "distance from home") +
@@ -453,16 +475,15 @@ server <- function(input, output) {
   
   output$velPlot <- renderPlot( {
     if(!is.null(currentFile$df)) {  
-        
+      
       # read in df
       df <- currentTrial$fitDF
       
-      print("bleh")
       
       p <- df %>%
         ggplot(aes(x = time_s, y = speed)) +
         geom_line(size = 3, alpha = .5) +
-        geom_point(data = filter(df, speed == max(speed))[1, ], 
+        geom_point(data = filter(df, maxV == 1), 
                    size = 8, colour = "#8c3331", shape = 10, 
                    stroke = 2, alpha = .8) +
         scale_y_continuous(name = "speed") +
@@ -478,11 +499,11 @@ server <- function(input, output) {
       #                stroke = 2, alpha = .8)
       # }
       
-      print(input$velClick$x)
       
       p
     }
   })
+  
   
   
   

@@ -29,7 +29,18 @@ jscode <- '$(document).keyup(function(e) {
 
 ui <- fluidPage(
 
-  tags$head(tags$script(HTML(jscode))),
+  tags$head(tags$script(HTML(jscode)),
+            tags$style(
+              HTML(".shiny-notification {
+             position:fixed;
+             top: 3%;
+             bottom: 92%;
+             left: 40%;
+             right: 40%;
+             }
+             "
+              )
+            )),
   
   # Application title
   titlePanel("Select!"),
@@ -82,6 +93,9 @@ ui <- fluidPage(
            actionButton("removeButton",
                         "Remove Trial", icon = icon("thumbs-down"),
                         style="color: #fff; background-color: #8c3331; border-color: #2e6da4"),
+           actionButton("setMaxVButton",
+                        "Override max velocity", icon = icon("exclamation-triangle"),
+                        style="color: #fff; background-color: #d6a333; border-color: #d66c33"),
            br(),
            br(),
            actionButton("saveButton",
@@ -95,15 +109,15 @@ ui <- fluidPage(
                         "Next File", icon = icon("angle-double-right")),
            br(),
            hr(),
-           br(),
-           actionButton("selectAllButton",
-                        "Auto-select all files")
+           br()
+           # actionButton("selectAllButton",
+           #              "Auto-select all files")
            ),
     
     # Show a plot of the generated distribution
-    column(8,
+    column(7,
            plotOutput("velPlot", click = clickOpts(id="velClick")),
            tableOutput("contents")
-    )
+           )
   )  
 )
