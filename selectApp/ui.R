@@ -12,10 +12,17 @@
 ##
 ## --------------------------------
 
-# packages used on the shinyApp
-library(data.table)
-library(tidyverse)
-library(shinyFiles)
+
+### Add additional packages needed here 
+### Only works for CRAN packages (manually write library statement for Bioconductor or GitHub packages)
+packages = c("tidyverse","data.table","shinyFiles")
+#if a package is installed, it will be loaded
+#if any are not, the missing package(s) will be installed and loaded
+package.check <- lapply(packages, FUN = function(x) {
+  if (!require(x, character.only = TRUE)) 
+    install.packages(x, dependencies = TRUE, repos = "http://cran.us.r-project.org")
+  library(x, character.only = TRUE)
+})
 
 # hotkeys
 jscode <- '$(document).keyup(function(e) {
@@ -85,6 +92,11 @@ ui <- fluidPage(
                         "Previous Trial", icon = icon("angle-left")),
            actionButton("nextButton", 
                         "Next Trial", icon = icon("angle-right")),
+           br(),
+           br(),
+           textInput("chooseTrialText", NULL, placeholder = "Trial", width = "30%"),
+           actionButton("goToTrialButton", "Go to Trial"),
+           br(),
            br(),
            br(),
            actionButton("keepButton",

@@ -18,7 +18,7 @@ server <- function(input, output) {
   source("analysisFunctions.R")
   
   ## Reactive stuff: We will use these later, like functions
-  currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL) 
+  currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL, chooseMaxV = FALSE) 
   currentFile <- reactiveValues(filePath = NULL,  fileNum = 1,
                                 df = NULL, dataList = list(), 
                                 min_x = NULL, max_x = NULL, 
@@ -48,11 +48,14 @@ server <- function(input, output) {
     
     # print(currentFile$filePath)
     
-    #reset the counterValue
+    # reset the counterValue
     currentTrial$counterValue <- 1
     
-    #reset the fitDF
+    # reset the fitDF
     currentTrial$fitDF <- NULL
+    
+    # reset the maxV toggle
+    currentTrial$chooseMaxV <- FALSE
     
     #reset dataList
     currentFile$dataList <- list()
@@ -390,9 +393,12 @@ server <- function(input, output) {
   # change maxV point
   observeEvent(input$velClick,{
     # print(paste("x = ", input$velClick$x))
-    currentTrial$fitDF$maxV <- 0
-    currentTrial$fitDF$maxV[which.min(abs(currentTrial$fitDF$time_s -input$velClick$x))] <- 1
-    
+    if (currentTrial$chooseMaxV == TRUE) {
+      currentTrial$fitDF$maxV <- 0
+      currentTrial$fitDF$maxV[which.min(abs(currentTrial$fitDF$time_s -input$velClick$x))] <- 1
+      
+      currentTrial$chooseMaxV <- FALSE
+    }
   })
   
   # the set max velocity button
@@ -403,10 +409,41 @@ server <- function(input, output) {
     )
     
     ## add the df to list
-    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
+    ## currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
+    
+    currentTrial$chooseMaxV <- TRUE
     
   })
   
+  # the go to trial button
+  observeEvent(input$goToTrialButton, {
+    validate(
+      need(!is.null(currentFile$df), "Please load some data to select."),
+      need(!is.na(as.integer(input$chooseTrialText)), "Please enter integer."),
+      need(as.integer(input$chooseTrialText) <= length(uniqueTrials()) && as.integer(input$chooseTrialText) > 0, "Out of range.")
+    )
+    
+    ## add the df to list
+    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
+    
+    ## move to trial
+    currentTrial$counterValue <- as.integer(input$chooseTrialText)
+    
+    # do things to the trial
+    fitDF()
+    addSelectedCols()
+    
+  })
+  
+  # # change the trial via input
+  # observeEvent(input$chooseTrialText, {
+  #   validate(
+  #     need(!is.null(currentFile$df), "Please load some data to select."),
+  #     need(!is.na(as.integer(input$chooseTrialText)), "Please enter integer.")
+  #   )
+  #   
+  #   print(as.integer(input$chooseTrialText))
+  # })
   
   
   ## ----
@@ -534,6 +571,8 @@ server <- function(input, output) {
       numSelected <- length(Filter(Negate(is.null), currentFile$dataList))
       
       if(numSelected == length(uniqueTrials())) {
+        showNotification("All trials selected!", type = "message")
+        
         paste("<b> <font color=\"#269148\" size=4>", numSelected, "/", 
               length(uniqueTrials()), "</font> </b>",
               sep = "")
