@@ -121,9 +121,9 @@ ui <- fluidPage(
                         "Next File", icon = icon("angle-double-right")),
            br(),
            hr(),
-           br()
-           # actionButton("selectAllButton",
-           #              "Auto-select all files")
+           br(),
+           actionButton("selectAllButton",
+                       "Auto-select all files")
            ),
     
     # Show a plot of the generated distribution
