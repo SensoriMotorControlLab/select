@@ -119,6 +119,20 @@ server <- function(input, output) {
         df$maxV <- 0
         
         df$maxV[df$time_s == filter(df, speed == max(speed))[1, ]$time_s] <- 1
+        
+        # fix maxV if the distance is too small
+        if (filter(df, maxV == 1)$distance < max(df$distance)/10){
+          #reset maxV
+          df$maxV <- 0
+          
+          # set maxV to 30% of movement
+          for (dist in df$distance){
+            if (dist > max(df$distance)*3/10){
+              df$maxV[df$distance == dist] <- 1
+              break
+            }
+          }
+        }
       }
       else {
         df$selected <- currentFile$dataList[[currentTrial$counterValue]]$selected
@@ -134,6 +148,20 @@ server <- function(input, output) {
       df$maxV <- 0
       
       df$maxV[df$time_s == filter(df, speed == max(speed))[1, ]$time_s] <- 1
+      
+      # fix maxV if the distance is too small
+      if (filter(df, maxV == 1)$distance < max(df$distance)/10){
+        #reset maxV
+        df$maxV <- 0
+        
+        # set maxV to 30% of movement
+        for (dist in df$distance){
+          if (dist > max(df$distance)*3/10){
+            df$maxV[df$distance == dist] <- 1
+            break
+          }
+        }
+      }
     }
     
     currentTrial$fitDF <- df
@@ -361,6 +389,20 @@ server <- function(input, output) {
         fitDF$maxV <- 0
         
         fitDF$maxV[fitDF$time_s == filter(fitDF, speed == max(speed))[1, ]$time_s] <- 1
+        
+        # fix maxV if the distance is too small
+        if (filter(fitDF, maxV == 1)$distance < max(fitDF$distance)/10){
+          #reset maxV
+          fitDF$maxV <- 0
+          
+          # set maxV to 30% of movement
+          for (dist in fitDF$distance){
+            if (dist > max(fitDF$distance)*3/10){
+              fitDF$maxV[fitDF$distance == dist] <- 1
+              break
+            }
+          }
+        }
         
         # add this to list
         trialList[[trialListCounter]] <- fitDF %>%
@@ -604,6 +646,6 @@ server <- function(input, output) {
 
 ##---- 
 ## Testing
-# currentTrialDF <- fread("sampleData/stepwiseExp/1/1_aligned_traning_1.txt", stringsAsFactors = FALSE) %>%
+# currentTrialDF <- fread("selectApp/sampleData/2/2_aligned_traning_1.txt", stringsAsFactors = FALSE) %>%
 #   filter(trial_num == 1)
 # df <- currentTrialDF
