@@ -116,23 +116,7 @@ server <- function(input, output) {
     
       if (is.null(currentFile$dataList[[currentTrial$counterValue]])){
         df$selected <- 1
-        df$maxV <- 0
-        
-        df$maxV[df$time_s == filter(df, speed == max(speed))[1, ]$time_s] <- 1
-        
-        # fix maxV if the distance is too small
-        if (filter(df, maxV == 1)$distance < max(df$distance)/10){
-          #reset maxV
-          df$maxV <- 0
-          
-          # set maxV to 30% of movement
-          for (dist in df$distance){
-            if (dist > max(df$distance)*3/10){
-              df$maxV[df$distance == dist] <- 1
-              break
-            }
-          }
-        }
+        df <- add_maxV_col(df)
       }
       else {
         df$selected <- currentFile$dataList[[currentTrial$counterValue]]$selected
@@ -145,23 +129,7 @@ server <- function(input, output) {
     # if that dataList[[counterValue]] doesn't exist at all, the above code will not work
     if(!worked){
       df$selected <- 1
-      df$maxV <- 0
-      
-      df$maxV[df$time_s == filter(df, speed == max(speed))[1, ]$time_s] <- 1
-      
-      # fix maxV if the distance is too small
-      if (filter(df, maxV == 1)$distance < max(df$distance)/10){
-        #reset maxV
-        df$maxV <- 0
-        
-        # set maxV to 30% of movement
-        for (dist in df$distance){
-          if (dist > max(df$distance)*3/10){
-            df$maxV[df$distance == dist] <- 1
-            break
-          }
-        }
-      }
+      df <- add_maxV_col(df)
     }
     
     currentTrial$fitDF <- df
@@ -386,23 +354,7 @@ server <- function(input, output) {
         
         # do the selection
         fitDF$selected <- 1
-        fitDF$maxV <- 0
-        
-        fitDF$maxV[fitDF$time_s == filter(fitDF, speed == max(speed))[1, ]$time_s] <- 1
-        
-        # fix maxV if the distance is too small
-        if (filter(fitDF, maxV == 1)$distance < max(fitDF$distance)/10){
-          #reset maxV
-          fitDF$maxV <- 0
-          
-          # set maxV to 30% of movement
-          for (dist in fitDF$distance){
-            if (dist > max(fitDF$distance)*3/10){
-              fitDF$maxV[fitDF$distance == dist] <- 1
-              break
-            }
-          }
-        }
+        fitDF <- add_maxV_col(fitDF)
         
         # add this to list
         trialList[[trialListCounter]] <- fitDF %>%
