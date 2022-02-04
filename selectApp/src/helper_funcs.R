@@ -36,3 +36,5 @@ vector_confint <- function(vector, interval = 0.95) {
 
 # get the magnitude (euclidian normal) of a vector (this is faster than R's built in norm)
 vector_norm <- function(vector){sqrt(sum(vector^2))}
+
+# get maxV

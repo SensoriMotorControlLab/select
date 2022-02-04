@@ -15,7 +15,7 @@
 server <- function(input, output) {
   
 
-  source("analysisFunctions.R")
+  source("src/helper_funcs.R")
   
   ## Reactive stuff: We will use these later, like functions
   currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL, chooseMaxV = FALSE) 
