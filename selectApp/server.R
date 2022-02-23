@@ -18,7 +18,7 @@ server <- function(input, output) {
   source("src/helper_funcs.R")
   
   ## Reactive stuff: We will use these later, like functions
-  currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL, chooseMaxV = FALSE) 
+  currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL, chooseMaxV = FALSE, trialValuesDF = NULL) 
   currentFile <- reactiveValues(filePath = NULL,  fileNum = 1,
                                 df = NULL, dataList = list(), 
                                 min_x = NULL, max_x = NULL, 
@@ -80,8 +80,8 @@ server <- function(input, output) {
     uniqueTrials
   })
   
-  # a tibble with time, mousex, mousey, spline, speed, seleted, maxV column
-  fitDF <- reactive({
+  # make a tibble with time, mousex, mousey, spline, speed, seleted, maxV column
+  makeFitDF <- reactive({
     
     fitDF <- currentTrialDF() %>%
       select(time_s, mousex_px, mousey_px)
@@ -103,6 +103,16 @@ server <- function(input, output) {
     
     currentTrial$fitDF <- fitDF
   })
+  
+  # make a tibble with target location, etc
+  make_trialValuesDF <- reactive({
+    
+    # select only the relevant rows
+    # START HERE: TODO: add this function to all the places it needs to be (should make that a bit easier on eyes), add to plot
+    fitDF <- currentTrialDF() %>%
+      select(targetx_px, targety_px)
+  })
+  
   
   addSelectedCols <- reactive({
     df <- currentTrial$fitDF
@@ -182,7 +192,7 @@ server <- function(input, output) {
       currentTrial$counterValue <- currentTrial$counterValue + 1
     }
     
-    fitDF()
+    makeFitDF()
     addSelectedCols()
     
   })
@@ -208,7 +218,7 @@ server <- function(input, output) {
     
     # print(currentTrial$counterValue)
     # start selecting the new data
-    fitDF()
+    makeFitDF()
     addSelectedCols()
     
   })
@@ -234,7 +244,7 @@ server <- function(input, output) {
     
     # start selecting the new data
     storeCurrentData()
-    fitDF()
+    makeFitDF()
     addSelectedCols()
     
   })
@@ -260,7 +270,7 @@ server <- function(input, output) {
     
     # start selecting the new data
     storeCurrentData()
-    fitDF()
+    makeFitDF()
     addSelectedCols()
     
   })
@@ -276,7 +286,7 @@ server <- function(input, output) {
     
     # start selecting the new data
     storeCurrentData()
-    fitDF()
+    makeFitDF()
     addSelectedCols()
   })
   
@@ -424,7 +434,7 @@ server <- function(input, output) {
     currentTrial$counterValue <- as.integer(input$chooseTrialText)
     
     # do things to the trial
-    fitDF()
+    makeFitDF()
     addSelectedCols()
     
   })
