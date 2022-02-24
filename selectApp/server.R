@@ -44,6 +44,13 @@ server <- function(input, output) {
     if(as.character(globalValues$settingsFilePath[4]) != "character(0)"){
       globalValues$settingsDF <- fread(as.character(globalValues$settingsFilePath[4]),
                                        stringsAsFactors = FALSE)
+      # replace default_settings file
+      fwrite(globalValues$settingsDF, file = "settings/default_settings.txt")
+    }
+    else{
+      # use the default_settings file
+      globalValues$settingsDF <- fread("settings/default_settings.txt",
+                                       stringsAsFactors = FALSE)
     }
   })
   
@@ -55,6 +62,7 @@ server <- function(input, output) {
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
     
     print(as.character(globalValues$settingsFilePath[4]) != "character(0)")
+    
     # rename columns based on settings
     if (!is.null(globalValues$settingsDF)){
       df <- df %>%
