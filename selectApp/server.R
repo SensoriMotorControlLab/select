@@ -13,7 +13,6 @@
 ## --------------------------------
 
 server <- function(input, output) {
-  
 
   source("src/helper_funcs.R")
   
@@ -41,10 +40,10 @@ server <- function(input, output) {
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
     
     # get maximum x and y (for plotting)
-    currentFile$min_x <- min(df$mousex_px)
-    currentFile$max_x <- max(df$mousex_px)
-    currentFile$min_y <- min(df$mousey_px)
-    currentFile$max_y <- max(df$mousey_px)
+    currentFile$min_x <- min(min(df$mousex_px), min(df$targetx_px))
+    currentFile$max_x <- max(max(df$mousex_px), max(df$targetx_px))
+    currentFile$min_y <- min(min(df$mousey_px), min(df$targety_px))
+    currentFile$max_y <- max(max(df$mousey_px), max(df$targety_px))
     
     # print(currentFile$filePath)
     
@@ -56,6 +55,9 @@ server <- function(input, output) {
     
     # reset the maxV toggle
     currentTrial$chooseMaxV <- FALSE
+    
+    # reset the trialValueDF
+    currentTrial$trialValuesDF = NULL
     
     #reset dataList
     currentFile$dataList <- list()
@@ -108,9 +110,13 @@ server <- function(input, output) {
   make_trialValuesDF <- reactive({
     
     # select only the relevant rows
-    # START HERE: TODO: add this function to all the places it needs to be (should make that a bit easier on eyes), add to plot
-    fitDF <- currentTrialDF() %>%
+    temp_trialValuesDF <- currentTrialDF() %>%
       select(targetx_px, targety_px)
+    
+    # only need to store 1 row
+    temp_trialValuesDF <- temp_trialValuesDF[1,]
+    
+    currentTrial$trialValuesDF <- temp_trialValuesDF
   })
   
   
@@ -193,6 +199,7 @@ server <- function(input, output) {
     }
     
     makeFitDF()
+    make_trialValuesDF()
     addSelectedCols()
     
   })
@@ -219,6 +226,7 @@ server <- function(input, output) {
     # print(currentTrial$counterValue)
     # start selecting the new data
     makeFitDF()
+    make_trialValuesDF()
     addSelectedCols()
     
   })
@@ -245,6 +253,7 @@ server <- function(input, output) {
     # start selecting the new data
     storeCurrentData()
     makeFitDF()
+    make_trialValuesDF()
     addSelectedCols()
     
   })
@@ -271,6 +280,7 @@ server <- function(input, output) {
     # start selecting the new data
     storeCurrentData()
     makeFitDF()
+    make_trialValuesDF()
     addSelectedCols()
     
   })
@@ -287,6 +297,7 @@ server <- function(input, output) {
     # start selecting the new data
     storeCurrentData()
     makeFitDF()
+    make_trialValuesDF()
     addSelectedCols()
   })
   
@@ -435,6 +446,7 @@ server <- function(input, output) {
     
     # do things to the trial
     makeFitDF()
+    make_trialValuesDF()
     addSelectedCols()
     
   })
@@ -458,7 +470,8 @@ server <- function(input, output) {
     if(!is.null(currentFile$df)) {  
       # read in df
       df <- currentTrial$fitDF
-      
+
+      # plot the reach
       p <- df %>%
         ggplot(aes(x = mousex_px, y = mousey_px)) +
         geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
@@ -476,6 +489,10 @@ server <- function(input, output) {
         #          label = paste("Trial: ", currentTrial$counterValue)) +
         theme_minimal() +
         theme(text = element_text(size=20))
+      
+      # add target
+      p <- p + geom_point(data = currentTrial$trialValuesDF, aes(x = targetx_px, y = targety_px),
+                          size = 4, colour = "#d6a333", shape = 19, stroke = 2)
       
       # change background colour
       if(currentTrial$fitDF$selected[1] == 1) {
