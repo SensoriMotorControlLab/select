@@ -23,7 +23,8 @@ server <- function(input, output) {
                                 min_x = NULL, max_x = NULL, 
                                 min_y = NULL, max_y = NULL)
   allFiles <- reactiveValues(inFile = NULL)
-  globalValues <- reactiveValues(lazyMode = FALSE)
+  globalValues <- reactiveValues(lazyMode = FALSE, settingsFilePath = NULL,
+                                 settingsDF = NULL)
   volumes <- c(Home = fs::path_home(), WD = '.', getVolumes()())
   
   clickOpts(id = "velClick", clip = TRUE)
@@ -33,11 +34,42 @@ server <- function(input, output) {
     allFiles$inFile <- parseFilePaths(roots=c(volumes), input$files)
   })
   
+  # read in settings (this runs on "Start Selecting")
+  loadSettings <- reactive({
+    
+    # get the file path
+    globalValues$settingsFilePath <- parseFilePaths(roots=c(volumes), input$settingsButton)
+    
+    # set the actual DF
+    if(as.character(globalValues$settingsFilePath[4]) != "character(0)"){
+      globalValues$settingsDF <- fread(as.character(globalValues$settingsFilePath[4]),
+                                       stringsAsFactors = FALSE)
+    }
+  })
+  
+  
   storeCurrentData <- reactive({
     
     currentFile$filePath <- as.character(allFiles$inFile$datapath[currentFile$fileNum])
     
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
+    
+    print(as.character(globalValues$settingsFilePath[4]) != "character(0)")
+    # rename columns based on settings
+    if (!is.null(globalValues$settingsDF)){
+      df <- df %>%
+        rename(trial_num = globalValues$settingsDF$trial_num[1],
+               mousex_px = globalValues$settingsDF$mouse_x[1],
+               mousey_px = globalValues$settingsDF$mouse_y[1],
+               targetx_px = globalValues$settingsDF$target_x[1],
+               targety_px = globalValues$settingsDF$target_y[1],
+               time_s = globalValues$settingsDF$time[1],
+               cursorx_px = globalValues$settingsDF$cursor_x[1],
+               cursory_px = globalValues$settingsDF$cursor_y[1],
+               homex_px = globalValues$settingsDF$home_x[1],
+               homey_px = globalValues$settingsDF$home_y[1], 
+               rotation_angle = globalValues$settingsDF$rotation_angle[1])
+    }
     
     # get maximum x and y (for plotting)
     currentFile$min_x <- min(min(df$mousex_px), min(df$targetx_px))
@@ -177,6 +209,9 @@ server <- function(input, output) {
   # loading in a file
   shinyFileChoose(input, 'files', roots = volumes) # can do filetypes = c('', '.csv') here
   
+  # button to choose settings
+  shinyFileChoose(input, 'settingsButton', roots = volumes, filetypes = c('','csv')) 
+  
   # the "Next" button
   # this will also add the current trial to the list
   observeEvent(input$nextButton, {
@@ -293,6 +328,7 @@ server <- function(input, output) {
            message = "Please load some data to select."))
     
     loadFilePaths()
+    loadSettings()
     
     # start selecting the new data
     storeCurrentData()
@@ -450,6 +486,7 @@ server <- function(input, output) {
     addSelectedCols()
     
   })
+  
   
   # # change the trial via input
   # observeEvent(input$chooseTrialText, {

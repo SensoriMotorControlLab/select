@@ -52,7 +52,6 @@ ui <- fluidPage(
   # Application title
   titlePanel("Select!"),
   
-  # Sidebar with a slider input for number of bins 
   # note: columns should add up to 12
   fluidRow(
     column(4,
@@ -64,15 +63,26 @@ ui <- fluidPage(
            htmlOutput("keepStatusTxt",),
            br(),
            h3("Trials Selected: "),
-           htmlOutput("trialsSelectedTxt", )
+           htmlOutput("trialsSelectedTxt", ),
+           br(),
+           br(),
+           shinyFilesButton('files', 
+                            'Choose File(s)', 
+                            'Please select a file', multiple = TRUE, icon = icon("file")),
+           actionButton("runSelectButton",
+                        "Start Selecting", icon = icon("play-circle"))
     ),
     
     column(4,
            plotOutput("reachPlot", )
     ),
     
-    # Show a plot of the generated distribution
+    # Show a plot of the generated distances
     column(4,
+           shinyFilesButton('settingsButton', 
+                            'Choose Settings', 
+                            'Please select a file', multiple = FALSE, icon = icon("file"),
+                            style="float:right"),
            plotOutput("distPlot", )
     )
   ),
@@ -81,12 +91,6 @@ ui <- fluidPage(
   
   fluidRow(
     column(4,
-           shinyFilesButton('files', 
-                            'Choose File(s)', 
-                            'Please select a file', multiple = TRUE, icon = icon("file")),
-           actionButton("runSelectButton",
-                        "Run Selection", icon = icon("play-circle")),
-           br(),
            hr(),
            actionButton("prevButton", 
                         "Previous Trial", icon = icon("angle-left")),
@@ -126,7 +130,7 @@ ui <- fluidPage(
                        "Auto-select all files")
            ),
     
-    # Show a plot of the generated distribution
+    # Show a plot of the generated velocity
     column(7,
            plotOutput("velPlot", click = clickOpts(id="velClick")),
            tableOutput("contents")
