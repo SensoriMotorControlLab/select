@@ -225,7 +225,8 @@ server <- function(input, output) {
   observeEvent(input$nextButton, {
     
     validate(
-      need(!is.null(currentFile$df), "Please load some data to select.")
+      need(!is.null(currentFile$df), 
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     ## add the df to list
@@ -251,7 +252,8 @@ server <- function(input, output) {
   observeEvent(input$prevButton, {
     
     validate(
-      need(!is.null(currentFile$df), "Please load some data to select.")
+      need(!is.null(currentFile$df), 
+           showNotification("Please choose some data to select.", type = "error"))
     )
 
     # print(currentFile$dataList)
@@ -278,7 +280,8 @@ server <- function(input, output) {
   observeEvent(input$nextFileButton, {
     
     validate(
-      need(!is.null(currentFile$df), "Please load some data to select.")
+      need(!is.null(currentFile$df), 
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     ## move to next file
@@ -305,7 +308,8 @@ server <- function(input, output) {
   observeEvent(input$prevFileButton, {
     
     validate(
-      need(!is.null(currentFile$df), "Please load some data to select.")
+      need(!is.null(currentFile$df), 
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     
@@ -331,12 +335,22 @@ server <- function(input, output) {
   
   # After file is chosen, clicking this sets the currentFile$df to something
   observeEvent(input$runSelectButton, {
+    # guards: a file is selected, headers match the settings
     validate(
       need(length(input$files) != 1,
-           message = "Please load some data to select."))
+           showNotification("Please choose some data to select.", type = "error")))
     
     loadFilePaths()
     loadSettings()
+    
+    # get one file for checking colnames
+    currentFile$filePath <- as.character(allFiles$inFile$datapath[currentFile$fileNum])
+    df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
+    
+    # does this work?
+    validate(
+      need(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) == 1,
+           showNotification("Column names don't match. Please check settings", type = "error")))
     
     # start selecting the new data
     storeCurrentData()
@@ -348,9 +362,9 @@ server <- function(input, output) {
   observeEvent(input$saveButton, {
     validate(
       need(!is.null(currentFile$df), 
-           message = "Please load some data to select."),
+           showNotification("Please choose some data to select.", type = "error")),
       need(length(currentFile$dataList) == length(uniqueTrials()), 
-           showNotification("Please finish selecting", type = "error"))
+           showNotification("Please finish selecting.", type = "error"))
     )
     
     mergeAndSave()
@@ -363,7 +377,7 @@ server <- function(input, output) {
   observeEvent(input$keepButton, {
     validate(
       need(!is.null(currentFile$df), 
-           message = "Please load some data to select.")
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     currentTrial$fitDF$selected <- 1
@@ -373,7 +387,7 @@ server <- function(input, output) {
   observeEvent(input$removeButton, {
     validate(
       need(!is.null(currentFile$df), 
-           message = "Please load some data to select.")
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     currentTrial$fitDF$selected <- 0
@@ -384,7 +398,7 @@ server <- function(input, output) {
   observeEvent(input$selectAllButton, {
     validate(
       need(!is.null(currentFile$df), 
-           message = "Please load some data to select.")
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     for (filePath in allFiles$inFile$datapath){
@@ -464,7 +478,8 @@ server <- function(input, output) {
   observeEvent(input$setMaxVButton, {
     
     validate(
-      need(!is.null(currentFile$df), "Please load some data to select.")
+      need(!is.null(currentFile$df), 
+           showNotification("Please choose some data to select.", type = "error"))
     )
     
     ## add the df to list
@@ -477,9 +492,12 @@ server <- function(input, output) {
   # the go to trial button
   observeEvent(input$goToTrialButton, {
     validate(
-      need(!is.null(currentFile$df), "Please load some data to select."),
-      need(!is.na(as.integer(input$chooseTrialText)), "Please enter integer."),
-      need(as.integer(input$chooseTrialText) <= length(uniqueTrials()) && as.integer(input$chooseTrialText) > 0, "Out of range.")
+      need(!is.null(currentFile$df), 
+           showNotification("Please choose some data to select.", type = "error")),
+      need(!is.na(as.integer(input$chooseTrialText)), 
+           showNotification("Please enter an integer.", type = "error")),
+      need(as.integer(input$chooseTrialText) <= length(uniqueTrials()) && as.integer(input$chooseTrialText) > 0, 
+           showNotification("Trial out of range.", type = "error"))
     )
     
     ## add the df to list
@@ -499,7 +517,7 @@ server <- function(input, output) {
   # # change the trial via input
   # observeEvent(input$chooseTrialText, {
   #   validate(
-  #     need(!is.null(currentFile$df), "Please load some data to select."),
+  #     need(!is.null(currentFile$df), "Please choose some data to select."),
   #     need(!is.na(as.integer(input$chooseTrialText)), "Please enter integer.")
   #   )
   #   
