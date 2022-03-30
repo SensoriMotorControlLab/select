@@ -79,10 +79,11 @@ ui <- fluidPage(
     
     # Show a plot of the generated distances
     column(4,
-           shinyFilesButton('settingsButton', 
+           div(shinyFilesButton('settingsButton', 
                             'Choose Settings', 
-                            'Please select a file', multiple = FALSE, icon = icon("file"),
-                            style="float:right"),
+                            'Please select a file', multiple = FALSE, 
+                            icon = icon("file")), align = "right"),
+           div(checkboxInput("isCollapsedData", "TRIAL ROWS", FALSE), align = "right"),
            plotOutput("distPlot", )
     )
   ),

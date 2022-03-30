@@ -16,7 +16,8 @@ server <- function(input, output) {
 
   source("src/helper_funcs.R")
   
-  ## Reactive stuff: We will use these later, like functions
+  ## STORED DATA
+  
   currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL, chooseMaxV = FALSE, trialValuesDF = NULL) 
   currentFile <- reactiveValues(filePath = NULL,  fileNum = 1,
                                 df = NULL, dataList = list(), 
@@ -28,6 +29,9 @@ server <- function(input, output) {
   volumes <- c(Home = fs::path_home(), WD = '.', getVolumes()())
   
   clickOpts(id = "velClick", clip = TRUE)
+  
+  ##----
+  ## FUNCTIONS
   
   # read in df
   loadFilePaths <- reactive({
@@ -52,7 +56,20 @@ server <- function(input, output) {
       globalValues$settingsDF <- fread("settings/default_settings.txt",
                                        stringsAsFactors = FALSE)
     }
+    
+    print(globalValues$settingsDF)
   })
+  
+  checkIfDataLoaded <- function(){
+    if (is.null(currentFile$df)){
+      showNotification("Please choose some data to select.", type = "error")
+    }
+    
+    validate(
+      need(!is.null(currentFile$df), 
+           message = "Please choose some data to select.")
+    )
+  }
   
   
   storeCurrentData <- reactive({
@@ -61,7 +78,7 @@ server <- function(input, output) {
     
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
     
-    print(as.character(globalValues$settingsFilePath[4]) != "character(0)")
+    # print(as.character(globalValues$settingsFilePath[4]) != "character(0)")
     
     # rename columns based on settings
     if (!is.null(globalValues$settingsDF)){
@@ -77,6 +94,7 @@ server <- function(input, output) {
                homex_px = globalValues$settingsDF$home_x[1],
                homey_px = globalValues$settingsDF$home_y[1], 
                rotation_angle = globalValues$settingsDF$rotation_angle[1])
+      # ADD --> rename home and rotation_angle if exist, else fill with zeros
     }
     
     # get maximum x and y (for plotting)
@@ -104,7 +122,7 @@ server <- function(input, output) {
     
     currentFile$df <- df
     
-    })
+  })
   
   # df containing only the current trial
   currentTrialDF <- reactive({
@@ -165,7 +183,6 @@ server <- function(input, output) {
     
     worked <- FALSE
     
-    
     # make selected and maxV columns if they don't already exist in currentFile$dataList
     # if the do exist, just pull them from there
     try({
@@ -212,7 +229,7 @@ server <- function(input, output) {
   
   
   ## ----
-  ## Other backend stuff 
+  ## BUTTONS 
   
   # loading in a file
   shinyFileChoose(input, 'files', roots = volumes) # can do filetypes = c('', '.csv') here
@@ -224,10 +241,7 @@ server <- function(input, output) {
   # this will also add the current trial to the list
   observeEvent(input$nextButton, {
     
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    checkIfDataLoaded()
     
     ## add the df to list
     currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
@@ -251,10 +265,7 @@ server <- function(input, output) {
   # The "Previous" button
   observeEvent(input$prevButton, {
     
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    checkIfDataLoaded()
 
     # print(currentFile$dataList)
     currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
@@ -279,10 +290,7 @@ server <- function(input, output) {
   # The "Next File" button
   observeEvent(input$nextFileButton, {
     
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    checkIfDataLoaded()
     
     ## move to next file
     
@@ -307,11 +315,7 @@ server <- function(input, output) {
   # The "Previous File" button
   observeEvent(input$prevFileButton, {
     
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
-    
+    checkIfDataLoaded()
     
     # go to the last trial if the current trisl is "1"
     if(currentFile$fileNum == 1){
@@ -335,10 +339,15 @@ server <- function(input, output) {
   
   # After file is chosen, clicking this sets the currentFile$df to something
   observeEvent(input$runSelectButton, {
-    # guards: a file is selected, headers match the settings
+    
+    # guard: do filepaths exist?
+    if(length(input$files) == 1){
+      showNotification("Please choose some data to select.", type = "error")
+    }
+    
     validate(
       need(length(input$files) != 1,
-           showNotification("Please choose some data to select.", type = "error")))
+      message = "Please choose some data to select."))
     
     loadFilePaths()
     loadSettings()
@@ -347,10 +356,15 @@ server <- function(input, output) {
     currentFile$filePath <- as.character(allFiles$inFile$datapath[currentFile$fileNum])
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
     
-    # does this work?
+    # guard: do headers match settings?
+    if(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) != 1){
+      showNotification("Column names don't match. Please check settings", type = "error")
+    }
+    
     validate(
       need(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) == 1,
-           showNotification("Column names don't match. Please check settings", type = "error")))
+           message = "Column names don't match. Please check settings")
+      )
     
     # start selecting the new data
     storeCurrentData()
@@ -360,9 +374,11 @@ server <- function(input, output) {
   })
   
   observeEvent(input$saveButton, {
+    
+    checkIfDataLoaded()
+    
+    # guard: selecting complete?
     validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error")),
       need(length(currentFile$dataList) == length(uniqueTrials()), 
            showNotification("Please finish selecting.", type = "error"))
     )
@@ -373,22 +389,16 @@ server <- function(input, output) {
   })
   
   
-  # Keep button
+  # Keep trial button
   observeEvent(input$keepButton, {
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    checkIfDataLoaded()
     
     currentTrial$fitDF$selected <- 1
   })
   
-  # Remove buttons
+  # Remove trial button
   observeEvent(input$removeButton, {
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    checkIfDataLoaded()
     
     currentTrial$fitDF$selected <- 0
   })
@@ -396,10 +406,8 @@ server <- function(input, output) {
   
   # The select all button
   observeEvent(input$selectAllButton, {
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    
+    checkIfDataLoaded()
     
     for (filePath in allFiles$inFile$datapath){
       # read the file
@@ -477,10 +485,7 @@ server <- function(input, output) {
   # the set max velocity button
   observeEvent(input$setMaxVButton, {
     
-    validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error"))
-    )
+    checkIfDataLoaded()
     
     ## add the df to list
     ## currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, maxV)
@@ -491,9 +496,11 @@ server <- function(input, output) {
   
   # the go to trial button
   observeEvent(input$goToTrialButton, {
+    
+    checkIfDataLoaded()
+    
+    # guards: integer, trial out of range
     validate(
-      need(!is.null(currentFile$df), 
-           showNotification("Please choose some data to select.", type = "error")),
       need(!is.na(as.integer(input$chooseTrialText)), 
            showNotification("Please enter an integer.", type = "error")),
       need(as.integer(input$chooseTrialText) <= length(uniqueTrials()) && as.integer(input$chooseTrialText) > 0, 
@@ -527,7 +534,7 @@ server <- function(input, output) {
   
   ## ----
   
-  ## plots
+  ## PLOTS
   
   output$reachPlot <- renderPlot( {
     if(!is.null(currentFile$df)) {  
@@ -630,7 +637,7 @@ server <- function(input, output) {
   
   ##  Text
   
-  output$currentFileTxt <- renderText( {
+  output$currentFileTxt <- renderText({
     if(!is.null(currentFile$df)) {  
       paste("<font size=4>", currentFile$filePath, "  ", "<b>", currentFile$fileNum, 
             "/", length(allFiles$inFile$datapath), "</font> </b>",
