@@ -82,26 +82,66 @@ server <- function(input, output) {
     
     # rename columns based on settings
     if (!is.null(globalValues$settingsDF)){
+      # required headers
       df <- df %>%
         rename(trial_num = globalValues$settingsDF$trial_num[1],
                mousex_px = globalValues$settingsDF$mouse_x[1],
                mousey_px = globalValues$settingsDF$mouse_y[1],
-               targetx_px = globalValues$settingsDF$target_x[1],
-               targety_px = globalValues$settingsDF$target_y[1],
-               time_s = globalValues$settingsDF$time[1],
-               cursorx_px = globalValues$settingsDF$cursor_x[1],
-               cursory_px = globalValues$settingsDF$cursor_y[1],
-               homex_px = globalValues$settingsDF$home_x[1],
-               homey_px = globalValues$settingsDF$home_y[1], 
-               rotation_angle = globalValues$settingsDF$rotation_angle[1])
-      # ADD --> rename home and rotation_angle if exist, else fill with zeros
+               time_s = globalValues$settingsDF$time[1])
+      
+      # optional headers
+      home_headers <- c('home_x', 'home_y')
+      
+      # loop through optional headers
+      for (i in home_headers){
+        # test
+        temp_header <- globalValues$settingsDF %>% select(!!sym(i))
+        temp_header <- as.character(temp_header[1,])
+        
+        if (temp_header != "NA"){
+          # this header exists
+          # rename temp_header to i
+          df <- df %>%
+            rename(!!i := all_of(temp_header))
+        }
+        else {
+          # this header doesn't exist
+          # fill this thing with zeros
+          df[[i]] <- 0
+        }
+      }
+      
+      temp_headers <- c('target_x', 'target_y', 'cursor_x', 'cursor_y')
+      
+      # loop through optional headers
+      for (i in temp_headers){
+        # test
+        temp_header <- globalValues$settingsDF %>% select(!!sym(i))
+        temp_header <- as.character(temp_header[1,])
+        
+        if (temp_header != "NA"){
+          # this header exists
+          # rename temp_header to i
+          df <- df %>%
+            rename(!!i := all_of(temp_header))
+        }
+        else {
+          # this header doesn't exist
+          # fill this thing with "NA"s
+          df[[i]] <- "NA"
+        }
+      }
+      
+    }
+    else {
+      showNotification("Please choose a settings file.", type = "error")
     }
     
     # get maximum x and y (for plotting)
-    currentFile$min_x <- min(min(df$mousex_px), min(df$targetx_px))
-    currentFile$max_x <- max(max(df$mousex_px), max(df$targetx_px))
-    currentFile$min_y <- min(min(df$mousey_px), min(df$targety_px))
-    currentFile$max_y <- max(max(df$mousey_px), max(df$targety_px))
+    currentFile$min_x <- min(min(df$mousex_px), min(df$target_x))
+    currentFile$max_x <- max(max(df$mousex_px), max(df$target_x))
+    currentFile$min_y <- min(min(df$mousey_px), min(df$target_y))
+    currentFile$max_y <- max(max(df$mousey_px), max(df$target_y))
     
     # print(currentFile$filePath)
     
@@ -148,7 +188,7 @@ server <- function(input, output) {
     
     # add a distance row
     fitDF$distance <- currentTrialDF() %>% 
-      transmute(mousex_px = mousex_px - homex_px, mousey_px + homey_px) %>%
+      transmute(mousex_px = mousex_px - home_x, mousey_px + home_y) %>%
       apply(1, vector_norm)
     
     # fit a spline to the distance data
@@ -169,7 +209,7 @@ server <- function(input, output) {
     
     # select only the relevant rows
     temp_trialValuesDF <- currentTrialDF() %>%
-      select(targetx_px, targety_px)
+      select(target_x, target_y)
     
     # only need to store 1 row
     temp_trialValuesDF <- temp_trialValuesDF[1,]
@@ -426,7 +466,7 @@ server <- function(input, output) {
         
         # add a distance row
         fitDF$distance <- trialDF %>% 
-          transmute(mousex_px = mousex_px - homex_px, mousey_px + homey_px) %>%
+          transmute(mousex_px = mousex_px - home_x, mousey_px + home_y) %>%
           apply(1, vector_norm)
         
         # fit a spline to the distance data
@@ -561,7 +601,7 @@ server <- function(input, output) {
         theme(text = element_text(size=20))
       
       # add target
-      p <- p + geom_point(data = currentTrial$trialValuesDF, aes(x = targetx_px, y = targety_px),
+      p <- p + geom_point(data = currentTrial$trialValuesDF, aes(x = target_x, y = target_y),
                           size = 4, colour = "#d6a333", shape = 19, stroke = 2)
       
       # change background colour
