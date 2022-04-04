@@ -60,4 +60,82 @@ add_maxV_col <- function(df){
   
   return(df)
 }
+
+fixHeaders <- function(df, settings_df){
+  # required headers
+  df <- df %>%
+    rename(trial_num = settings_df$trial_num[1],
+           mouse_x = settings_df$mouse_x[1],
+           mouse_y = settings_df$mouse_y[1],
+           time_s = settings_df$time[1])
   
+  # optional headers
+  home_headers <- c('home_x', 'home_y')
+  
+  # loop through optional headers
+  for (i in home_headers){
+    # test
+    temp_header <- settings_df %>% select(!!sym(i))
+    temp_header <- as.character(temp_header[1,])
+    
+    if (temp_header != "NA"){
+      # this header exists
+      # rename temp_header to i
+      df <- df %>%
+        rename(!!i := all_of(temp_header))
+    }
+    else {
+      # this header doesn't exist
+      # fill this thing with zeros
+      df[[i]] <- 0
+    }
+  }
+  
+  temp_headers <- c('target_x', 'target_y', 'cursor_x', 'cursor_y')
+  
+  # loop through optional headers
+  for (i in temp_headers){
+    # test
+    temp_header <- settings_df %>% select(!!sym(i))
+    temp_header <- as.character(temp_header[1,])
+    
+    if (temp_header != "NA"){
+      # this header exists
+      # rename temp_header to i
+      df <- df %>%
+        rename(!!i := all_of(temp_header))
+    }
+    else {
+      # this header doesn't exist
+      # fill this thing with "NA"s
+      df[[i]] <- "NA"
+    }
+  }
+  
+  return(df)
+}
+
+build_df_from_row <- function(df){
+  # Should ONLY take required cols (to save space)
+  
+  
+}
+  
+# Functions from SMCL package
+
+convertCellToNumVector <- function(v) {
+  
+  # remove opening square bracket:
+  v <- gsub('\\[', replacement='', x=v)
+  # remove closing square bracket:
+  v <- gsub(']', replacement='', x=v)
+  # split by commas:
+  v <- strsplit(v, ',')
+  # convert to numeric:
+  v <- lapply(v, FUN=as.numeric)
+  # make vector:
+  v <- as.vector(unlist(v))
+  
+  return(v)
+  
+}

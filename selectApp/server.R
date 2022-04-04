@@ -80,68 +80,19 @@ server <- function(input, output) {
     
     # print(as.character(globalValues$settingsFilePath[4]) != "character(0)")
     
-    # rename columns based on settings
+    # rename column headers based on settings
     if (!is.null(globalValues$settingsDF)){
-      # required headers
-      df <- df %>%
-        rename(trial_num = globalValues$settingsDF$trial_num[1],
-               mousex_px = globalValues$settingsDF$mouse_x[1],
-               mousey_px = globalValues$settingsDF$mouse_y[1],
-               time_s = globalValues$settingsDF$time[1])
-      
-      # optional headers
-      home_headers <- c('home_x', 'home_y')
-      
-      # loop through optional headers
-      for (i in home_headers){
-        # test
-        temp_header <- globalValues$settingsDF %>% select(!!sym(i))
-        temp_header <- as.character(temp_header[1,])
-        
-        if (temp_header != "NA"){
-          # this header exists
-          # rename temp_header to i
-          df <- df %>%
-            rename(!!i := all_of(temp_header))
-        }
-        else {
-          # this header doesn't exist
-          # fill this thing with zeros
-          df[[i]] <- 0
-        }
-      }
-      
-      temp_headers <- c('target_x', 'target_y', 'cursor_x', 'cursor_y')
-      
-      # loop through optional headers
-      for (i in temp_headers){
-        # test
-        temp_header <- globalValues$settingsDF %>% select(!!sym(i))
-        temp_header <- as.character(temp_header[1,])
-        
-        if (temp_header != "NA"){
-          # this header exists
-          # rename temp_header to i
-          df <- df %>%
-            rename(!!i := all_of(temp_header))
-        }
-        else {
-          # this header doesn't exist
-          # fill this thing with "NA"s
-          df[[i]] <- "NA"
-        }
-      }
-      
+      df <- fixHeaders(df, globalValues$settingsDF)
     }
     else {
       showNotification("Please choose a settings file.", type = "error")
     }
     
     # get maximum x and y (for plotting)
-    currentFile$min_x <- min(min(df$mousex_px), min(df$target_x))
-    currentFile$max_x <- max(max(df$mousex_px), max(df$target_x))
-    currentFile$min_y <- min(min(df$mousey_px), min(df$target_y))
-    currentFile$max_y <- max(max(df$mousey_px), max(df$target_y))
+    currentFile$min_x <- min(min(df$mouse_x), min(df$target_x))
+    currentFile$max_x <- max(max(df$mouse_x), max(df$target_x))
+    currentFile$min_y <- min(min(df$mouse_y), min(df$target_y))
+    currentFile$max_y <- max(max(df$mouse_y), max(df$target_y))
     
     # print(currentFile$filePath)
     
@@ -169,6 +120,11 @@ server <- function(input, output) {
     df <- currentFile$df %>%
       filter(trial_num == uniqueTrials()[currentTrial$counterValue])
     
+    if(nrow(df) == 1){
+      #build the df
+      df <- build_df_from_row(df)
+    }
+    
     df
   })
   
@@ -184,11 +140,11 @@ server <- function(input, output) {
   makeFitDF <- reactive({
     
     fitDF <- currentTrialDF() %>%
-      select(time_s, mousex_px, mousey_px)
+      select(time_s, mouse_x, mouse_y)
     
     # add a distance row
     fitDF$distance <- currentTrialDF() %>% 
-      transmute(mousex_px = mousex_px - home_x, mousey_px + home_y) %>%
+      transmute(mouse_x = mouse_x - home_x, mouse_y + home_y) %>%
       apply(1, vector_norm)
     
     # fit a spline to the distance data
@@ -397,12 +353,12 @@ server <- function(input, output) {
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
     
     # guard: do headers match settings?
-    if(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) != 1){
+    if(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) > 2){
       showNotification("Column names don't match. Please check settings", type = "error")
     }
     
     validate(
-      need(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) == 1,
+      need(length(setdiff(as.character(globalValues$settingsDF[1,]), colnames(df))) <= 2 ,
            message = "Column names don't match. Please check settings")
       )
     
@@ -462,11 +418,11 @@ server <- function(input, output) {
           filter(trial_num == trialNum)
         
         fitDF <- trialDF %>%
-          select(time_s, mousex_px, mousey_px)
+          select(time_s, mouse_x, mouse_y)
         
         # add a distance row
         fitDF$distance <- trialDF %>% 
-          transmute(mousex_px = mousex_px - home_x, mousey_px + home_y) %>%
+          transmute(mouse_x = mouse_x - home_x, mouse_y + home_y) %>%
           apply(1, vector_norm)
         
         # fit a spline to the distance data
@@ -583,7 +539,7 @@ server <- function(input, output) {
 
       # plot the reach
       p <- df %>%
-        ggplot(aes(x = mousex_px, y = mousey_px)) +
+        ggplot(aes(x = mouse_x, y = mouse_y)) +
         geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
         geom_point(data = filter(df, maxV == 1), 
                    size = 6, colour = "#8c3331", shape = 10, 
