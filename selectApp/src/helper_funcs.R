@@ -115,13 +115,44 @@ fix_headers <- function(df, settings_df) {
   return(df)
 }
 
-build_df_from_row <- function(df) {
+build_df_from_rows <- function(df) {
   # Should ONLY take required cols (to save space)
+  # df should already have correct col names
+  
+  rowList = list()
+  i = 1
+  
+  # populate rowlist
+  for (trial_num_temp in df$trial_num) {
+    if (is.na(trial_num_temp)) {
+      next
+    }
+    else {
+      trial_row <- df %>%
+        filter(trial_num == trial_num_temp)
+      
+      trial_df <- data.frame(time_s = convert_cell_to_numvec(trial_row$time_s),
+                             mouse_x = convert_cell_to_numvec(trial_row$mouse_x),
+                             mouse_y = convert_cell_to_numvec(trial_row$mouse_y))
+      
+      trial_df$trial_num <- trial_num_temp
+      
+      # TO DO: populate optional headers
+      
+      rowList[[i]] <- trial_df
+      
+      i = i+1
+      #print(trial_num_temp)
+    }
+  }
+  
+  return(do.call(rbind, rowList))
 }
 
-# Functions from SMCL package
 
-conver_cell_to_numvec <- function(v) {
+
+# Functions from SMCL package
+convert_cell_to_numvec <- function(v) {
 
   # remove opening square bracket:
   v <- gsub("\\[", replacement = "", x = v)

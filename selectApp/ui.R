@@ -83,7 +83,7 @@ ui <- fluidPage(
                             'Choose Settings', 
                             'Please select a file', multiple = FALSE, 
                             icon = icon("file")), align = "right"),
-           div(checkboxInput("isCollapsedData", "TRIAL ROWS", FALSE), align = "right"),
+           # div(checkboxInput("isCollapsedData", "TRIAL ROWS", FALSE), align = "right"),
            plotOutput("distPlot", )
     )
   ),

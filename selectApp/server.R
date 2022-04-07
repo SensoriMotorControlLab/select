@@ -60,8 +60,8 @@ server <- function(input, output) {
         stringsAsFactors = FALSE
       )
     }
-
-    print(globalValues$settingsDF)
+    # for testing
+    # print(globalValues$settingsDF)
   })
 
   checkIfDataLoaded <- function() {
@@ -90,7 +90,25 @@ server <- function(input, output) {
     } else {
       showNotification("Please choose a settings file.", type = "error")
     }
-
+    
+    # NOTE: put this in helper funcs (should take in df)
+    # filter out trial one from df
+    trial1 <- df %>%
+      filter(trial_num == 1)
+    
+    if (nrow(trial1) == 1) {
+      df <- build_df_from_rows(df)
+    }
+    
+    # for testing
+    # print(df)
+    
+    
+    
+    
+    
+    
+    
     # get maximum x and y (for plotting)
     currentFile$min_x <- min(min(df$mouse_x), min(df$target_x))
     currentFile$max_x <- max(max(df$mouse_x), max(df$target_x))
@@ -111,7 +129,7 @@ server <- function(input, output) {
     # reset the trialValueDF
     currentTrial$trialValuesDF <- NULL
 
-    # reset dataList
+    # reset dataList -- used to store rows that are bound later
     currentFile$dataList <- list()
 
     currentFile$df <- df
