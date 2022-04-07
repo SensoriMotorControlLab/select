@@ -90,30 +90,30 @@ server <- function(input, output) {
     } else {
       showNotification("Please choose a settings file.", type = "error")
     }
-    
+
     # NOTE: put this in helper funcs (should take in df)
     # filter out trial one from df
     trial1 <- df %>%
       filter(trial_num == 1)
-    
+
     if (nrow(trial1) == 1) {
       df <- build_df_from_rows(df)
     }
-    
+
     # for testing
     # print(df)
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
     # get maximum x and y (for plotting)
-    currentFile$min_x <- min(min(df$mouse_x), min(df$target_x))
-    currentFile$max_x <- max(max(df$mouse_x), max(df$target_x))
-    currentFile$min_y <- min(min(df$mouse_y), min(df$target_y))
-    currentFile$max_y <- max(max(df$mouse_y), max(df$target_y))
+    currentFile$min_x <- get_min_val(df)[1]
+    currentFile$min_y <- get_min_val(df)[2]
+    currentFile$max_x <- get_max_val(df)[1]
+    currentFile$max_y <- get_max_val(df)[2]
 
     # print(currentFile$filePath)
 
@@ -181,15 +181,19 @@ server <- function(input, output) {
 
   # make a tibble with target location, etc
   make_trialValuesDF <- reactive({
-
+    temp_trial_values_df <- currentTrialDF()
     # select only the relevant rows
-    temp_trialValuesDF <- currentTrialDF() %>%
-      select(target_x, target_y)
+    # if target_x exists, select those values
+    if ("target_x" %in% colnames(temp_trial_values_df)) {
+      temp_trial_values_df <- temp_trial_values_df %>%
+        select(target_x, target_y) %>%
+        head(1)
+    } else {
+      # if target_x doesn't exist, select the first row
+      temp_trial_values_df <- data.frame(target_x = 0, target_y = 0)
+    }
 
-    # only need to store 1 row
-    temp_trialValuesDF <- temp_trialValuesDF[1, ]
-
-    currentTrial$trialValuesDF <- temp_trialValuesDF
+    currentTrial$trialValuesDF <- temp_trial_values_df
   })
 
 
@@ -572,10 +576,14 @@ server <- function(input, output) {
         theme(text = element_text(size = 20))
 
       # add target
-      p <- p + geom_point(
-        data = currentTrial$trialValuesDF, aes(x = target_x, y = target_y),
-        size = 4, colour = "#d6a333", shape = 19, stroke = 2
-      )
+      if (currentTrial$trialValuesDF$target_x != 0 || currentTrial$trialValuesDF$target_y != 0) {
+        p <- p + geom_point(
+          data = currentTrial$trialValuesDF,
+          aes(x = target_x, y = target_y),
+          size = 3, colour = "#d6a333", shape = 19,
+          stroke = 2
+        )
+      }
 
       # change background colour
       if (currentTrial$fitDF$selected[1] == 1) {
