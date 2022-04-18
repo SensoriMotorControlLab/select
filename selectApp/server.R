@@ -15,14 +15,21 @@
 server <- function(input, output) {
   source("src/helper_funcs.R")
   ## STORED DATA
-  # test
 
-  currentTrial <- reactiveValues(counterValue = 1, fitDF = NULL, chooseMaxV = FALSE, trialValuesDF = NULL)
+  # note: trial and step counters are NOT the values of the trial and step
+  # see the "uniqueTrials" function for use
+  currentTrial <- reactiveValues(
+    trialCounter = 1, stepCounter = 1,
+    fitDF = NULL,
+    chooseMaxV = FALSE, trialValuesDF = NULL
+  )
   currentFile <- reactiveValues(
     filePath = NULL, fileNum = 1,
     df = NULL, dataList = list(),
     min_x = NULL, max_x = NULL,
-    min_y = NULL, max_y = NULL
+    min_y = NULL, max_y = NULL,
+    done_trial_list = array(),
+    is_collapsed = FALSE
   )
   allFiles <- reactiveValues(inFile = NULL)
   globalValues <- reactiveValues(
@@ -77,12 +84,10 @@ server <- function(input, output) {
   }
 
 
-  storeCurrentData <- reactive({
+  loadNewFileAndSetDefaults <- reactive({
     currentFile$filePath <- as.character(allFiles$inFile$datapath[currentFile$fileNum])
 
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
-
-    # print(as.character(globalValues$settingsFilePath[4]) != "character(0)")
 
     # rename column headers based on settings
     if (!is.null(globalValues$settingsDF)) {
@@ -91,23 +96,20 @@ server <- function(input, output) {
       showNotification("Please choose a settings file.", type = "error")
     }
 
-    # NOTE: put this in helper funcs (should take in df)
-    # filter out trial one from df
+    # set the file df to this one
+    currentFile$df <- df
+
+    # reset is_collapsed
+    currentFile$is_collapsed <- FALSE
+
+    # filter out first tiral from df
     trial1 <- df %>%
-      filter(trial_num == 1)
+      filter(trial_num == uniqueTrials()[1])
 
     if (nrow(trial1) == 1) {
       df <- build_df_from_rows(df)
+      currentFile$is_collapsed <- TRUE
     }
-
-    # for testing
-    # print(df)
-
-
-
-
-
-
 
     # get maximum x and y (for plotting)
     currentFile$min_x <- get_min_val(df)[1]
@@ -117,8 +119,8 @@ server <- function(input, output) {
 
     # print(currentFile$filePath)
 
-    # reset the counterValue
-    currentTrial$counterValue <- 1
+    # reset the trialCounter
+    currentTrial$trialCounter <- 1
 
     # reset the fitDF
     currentTrial$fitDF <- NULL
@@ -129,20 +131,24 @@ server <- function(input, output) {
     # reset the trialValueDF
     currentTrial$trialValuesDF <- NULL
 
+    # reset the done_trial_list
+    currentFile$done_trial_list <- array()
+
     # reset dataList -- used to store rows that are bound later
     currentFile$dataList <- list()
-
-    currentFile$df <- df
+    for (trial in range(length(uniqueTrials()))) {
+      currentFile$dataList[[trial]] <- list()
+    }
   })
 
   # df containing only the current trial
   currentTrialDF <- reactive({
     df <- currentFile$df %>%
-      filter(trial_num == uniqueTrials()[currentTrial$counterValue])
+      filter(trial_num == uniqueTrials()[currentTrial$trialCounter])
 
     if (nrow(df) == 1) {
       # build the df
-      df <- build_df_from_row(df)
+      df <- build_df_from_rows(df)
     }
 
     df
@@ -153,28 +159,32 @@ server <- function(input, output) {
     uniqueTrials <- currentFile$df$trial_num %>%
       unique()
 
+    # get rid of NAs
+    uniqueTrials <- uniqueTrials[!sapply(uniqueTrials, is.na)]
+
     uniqueTrials
   })
 
+  # returns a vector of the unique steps in current file
+  uniqueSteps <- reactive({
+    uniqueSteps <- currentTrialDF()$step %>%
+      unique()
+
+    # get rid of NAs
+    uniqueSteps <- uniqueSteps[!sapply(uniqueSteps, is.na)]
+
+    uniqueSteps
+  })
+
   # make a tibble with time, mousex, mousey, spline, speed, seleted, max_v column
-  makeFitDF <- reactive({
+  add_trial_fitDF <- reactive({
+    # get the current trial and step
     fitDF <- currentTrialDF() %>%
-      select(time_s, mouse_x, mouse_y)
+      filter(step == uniqueSteps()[currentTrial$stepCounter]) %>%
+      select(time_s, mouse_x, mouse_y, home_x, home_y)
 
-    # add a distance row
-    fitDF$distance <- currentTrialDF() %>%
-      transmute(mouse_x = mouse_x - home_x, mouse_y + home_y) %>%
-      apply(1, vector_norm)
-
-    # fit a spline to the distance data
-    fit_fun <- smooth.spline(x = fitDF$time_s, y = fitDF$distance, df = 7)
-
-    # add a spline column
-    fitDF$spline <- predict(fit_fun, fitDF$time_s)$y
-
-    # add a speed column
-    fitDF$speed <- predict(fit_fun, fitDF$time_s, deriv = 1)$y
-
+    # fit distance and speed
+    fitDF <- make_fitDF(step_df = fitDF)
 
     currentTrial$fitDF <- fitDF
   })
@@ -197,7 +207,7 @@ server <- function(input, output) {
   })
 
 
-  addSelectedCols <- reactive({
+  addSelectedCols_trial_fitDF <- reactive({
     df <- currentTrial$fitDF
 
     worked <- FALSE
@@ -206,12 +216,14 @@ server <- function(input, output) {
     # if the do exist, just pull them from there
     try(
       {
-        if (is.null(currentFile$dataList[[currentTrial$counterValue]])) {
+        if (is.null(currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]])) {
           df$selected <- 1
           df <- add_maxv_col(df)
         } else {
-          df$selected <- currentFile$dataList[[currentTrial$counterValue]]$selected
-          df$max_v <- currentFile$dataList[[currentTrial$counterValue]]$max_v
+          df$selected <-
+            currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]]$selected
+          df$max_v <-
+            currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]]$max_v
         }
 
         worked <- TRUE
@@ -219,7 +231,7 @@ server <- function(input, output) {
       silent = TRUE
     )
 
-    # if that dataList[[counterValue]] doesn't exist at all, the above code will not work
+    # if that dataList[[trialCounter]] doesn't exist at all, the above code will not work
     if (!worked) {
       df$selected <- 1
       df <- add_maxv_col(df)
@@ -236,10 +248,19 @@ server <- function(input, output) {
     pathToSave <- paste(pathToSave, "selected.csv", sep = "_")
 
     # concatenate the selected columns
-    selected_df <- do.call(rbind, currentFile$dataList)
+    selected_df <- do.call(rbind, map(currentFile$dataList, bind_rows))
 
+    View(selected_df)
+    View(currentFile$df)
+    # build expanded df if collapsed
+    # otherwise, just use the currentFile$df
+    if (currentFile$is_collapsed) {
+      df <- build_df_from_rows_for_saving(currentFile$df)
+    } else {
+      df <- currentFile$df
+    }
     # add the selected_df columns to df
-    selected_df <- cbind2(currentFile$df, selected_df)
+    selected_df <- cbind2(df, selected_df)
 
     # print(pathToSave)
 
@@ -251,51 +272,191 @@ server <- function(input, output) {
   ## BUTTONS
 
   # loading in a file
-  shinyFileChoose(input, "files", roots = volumes) # can do filetypes = c('', '.csv') here
+  shinyFileChoose(input, "files",
+    roots = volumes
+  ) # can do filetypes = c('', '.csv') here
 
   # button to choose settings
-  shinyFileChoose(input, "settingsButton", roots = volumes, filetypes = c("", "csv"))
+  shinyFileChoose(input, "settingsButton",
+    roots = volumes, filetypes = c("", "csv")
+  )
 
-  # the "Next" button
-  # this will also add the current trial to the list
-  observeEvent(input$nextButton, {
+  # the "Next Step" button
+  observeEvent(input$nextStepButton, {
     checkIfDataLoaded()
 
-    ## add the df to list
-    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, max_v)
+    currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]] <-
+      currentTrial$fitDF %>%
+      select(selected, max_v)
 
-    ## move to next trial
-
-    if (currentTrial$counterValue == length(uniqueTrials())) {
-      currentTrial$counterValue <- 1
-    } else {
-      currentTrial$counterValue <- currentTrial$counterValue + 1
+    # append current trial to done_trial_list
+    # if it's not already there and all steps are done
+    if (length(currentFile$dataList[[currentTrial$trialCounter]]) == length(uniqueSteps())) {
+      if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+        currentFile$done_trial_list <- c(
+          currentFile$done_trial_list,
+          currentTrial$trialCounter
+        )
+      }
     }
 
-    makeFitDF()
+    ## move to next step
+    if (currentTrial$stepCounter == length(uniqueSteps())) {
+      currentTrial$stepCounter <- 1
+    } else {
+      currentTrial$stepCounter <- currentTrial$stepCounter + 1
+    }
+
+    add_trial_fitDF()
     make_trialValuesDF()
-    addSelectedCols()
+    addSelectedCols_trial_fitDF()
   })
 
-  # The "Previous" button
-  observeEvent(input$prevButton, {
+  # The "Previous Step" button
+  observeEvent(input$prevStepButton, {
     checkIfDataLoaded()
 
-    # print(currentFile$dataList)
-    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, max_v)
+    # update the dataList at current step
+    currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]] <-
+      currentTrial$fitDF %>%
+      select(selected, max_v)
 
-    # go to the last trial if the current trisl is "1"
-    if (currentTrial$counterValue == 1) {
-      currentTrial$counterValue <- length(uniqueTrials())
-    } else {
-      currentTrial$counterValue <- currentTrial$counterValue - 1
+    # append current trial to done_trial_list
+    # if it's not already there and all steps are done
+    if (length(currentFile$dataList[[currentTrial$trialCounter]]) == length(uniqueSteps())) {
+      if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+        currentFile$done_trial_list <- c(
+          currentFile$done_trial_list,
+          currentTrial$trialCounter
+        )
+      }
     }
 
-    # print(currentTrial$counterValue)
+    # go to the last trial if the current trial is "1"
+    if (currentTrial$stepCounter == 1) {
+      currentTrial$stepCounter <- length(uniqueSteps())
+    } else {
+      currentTrial$stepCounter <- currentTrial$stepCounter - 1
+    }
+
+    # print(currentTrial$trialCounter)
     # start selecting the new data
-    makeFitDF()
+    add_trial_fitDF()
     make_trialValuesDF()
-    addSelectedCols()
+    addSelectedCols_trial_fitDF()
+  })
+
+  # the "Next Trial" button
+  # this will also add the current trial to the list
+  observeEvent(input$nextTrialButton, {
+    checkIfDataLoaded()
+
+    ## add the dfs for all steps to dataList
+    steps_in_trial <- seq(length(uniqueSteps()))
+    # loop through steps in the trial
+    for (step_num in steps_in_trial) {
+      if (step_num == currentTrial$stepCounter) {
+        # add the current step to the list
+        currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+          select(currentTrial$fitDF, selected, max_v)
+      } else {
+        if (tryCatch(is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), error = function(e) {
+          return(TRUE)
+        })) {
+          # above resolves TRUE if dataList is empty at that nested index
+
+          # add the other steps to the list if they don't exist already
+          # construct the df first
+          temp_df <- currentTrialDF() %>%
+            filter(step == uniqueSteps()[step_num]) %>%
+            select(time_s, mouse_x, mouse_y, home_x, home_y)
+
+          # assign to dataList
+          temp_df <- make_fitDF(step_df = temp_df)
+          temp_df$selected <- 1
+          temp_df <- add_maxv_col(temp_df)
+
+          currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+            select(temp_df, selected, max_v)
+        }
+      }
+    }
+
+    # append the current trial to done_trial_list if it's not already there
+    if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+      currentFile$done_trial_list <- c(
+        currentFile$done_trial_list,
+        currentTrial$trialCounter
+      )
+    }
+
+    ## move to next trial
+    if (currentTrial$trialCounter == length(uniqueTrials())) {
+      currentTrial$trialCounter <- 1
+    } else {
+      currentTrial$trialCounter <- currentTrial$trialCounter + 1
+    }
+
+    add_trial_fitDF()
+    make_trialValuesDF()
+    addSelectedCols_trial_fitDF()
+  })
+
+  # The "Previous Trial" button
+  observeEvent(input$prevTrialButton, {
+    checkIfDataLoaded()
+
+    ## add the dfs for all steps to dataList
+    steps_in_trial <- seq(length(uniqueSteps()))
+    # loop through steps in the trial
+    for (step_num in steps_in_trial) {
+      if (step_num == currentTrial$stepCounter) {
+        # add the current step to the list
+        currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+          select(currentTrial$fitDF, selected, max_v)
+      } else {
+        if (tryCatch(is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), error = function(e) {
+          return(TRUE)
+        })) {
+          # above resolves TRUE if dataList is empty at that nested index
+
+          # add the other steps to the list if they don't exist already
+          # construct the df first
+          temp_df <- currentTrialDF() %>%
+            filter(step == uniqueSteps()[step_num]) %>%
+            select(time_s, mouse_x, mouse_y, home_x, home_y)
+
+          # assign to dataList
+          temp_df <- make_fitDF(step_df = temp_df)
+          temp_df$selected <- 1
+          temp_df <- add_maxv_col(temp_df)
+
+          currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+            select(temp_df, selected, max_v)
+        }
+      }
+    }
+
+    # append the current trial to done_trial_list if it's not already there
+    if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+      currentFile$done_trial_list <- c(
+        currentFile$done_trial_list,
+        currentTrial$trialCounter
+      )
+    }
+
+    # go to the last trial if the current trial is "1"
+    if (currentTrial$trialCounter == 1) {
+      currentTrial$trialCounter <- length(uniqueTrials())
+    } else {
+      currentTrial$trialCounter <- currentTrial$trialCounter - 1
+    }
+
+    # print(currentTrial$trialCounter)
+    # start selecting the new data
+    add_trial_fitDF()
+    make_trialValuesDF()
+    addSelectedCols_trial_fitDF()
   })
 
   # The "Next File" button
@@ -310,13 +471,11 @@ server <- function(input, output) {
       currentFile$fileNum <- currentFile$fileNum + 1
     }
 
-    # print(currentFile$fileNum)
-
     # start selecting the new data
-    storeCurrentData()
-    makeFitDF()
+    loadNewFileAndSetDefaults()
+    add_trial_fitDF()
     make_trialValuesDF()
-    addSelectedCols()
+    addSelectedCols_trial_fitDF()
   })
 
   # The "Previous File" button
@@ -330,13 +489,11 @@ server <- function(input, output) {
       currentFile$fileNum <- currentFile$fileNum - 1
     }
 
-    # print(currentFile$fileNum)
-
     # start selecting the new data
-    storeCurrentData()
-    makeFitDF()
+    loadNewFileAndSetDefaults()
+    add_trial_fitDF()
     make_trialValuesDF()
-    addSelectedCols()
+    addSelectedCols_trial_fitDF()
   })
 
 
@@ -373,20 +530,24 @@ server <- function(input, output) {
     )
 
     # start selecting the new data
-    storeCurrentData()
-    makeFitDF()
+    loadNewFileAndSetDefaults()
+    add_trial_fitDF()
     make_trialValuesDF()
-    addSelectedCols()
+    addSelectedCols_trial_fitDF()
   })
 
   observeEvent(input$saveButton, {
     checkIfDataLoaded()
 
     # guard: selecting complete?
+    if (length(currentFile$done_trial_list) - 1 != length(uniqueTrials())) {
+      showNotification("Please select all trials.", type = "error")
+    }
+
     validate(
       need(
-        length(currentFile$dataList) == length(uniqueTrials()),
-        showNotification("Please finish selecting.", type = "error")
+        length(currentFile$done_trial_list) - 1 == length(uniqueTrials()),
+        message = "Please finish selecting."
       )
     )
 
@@ -492,7 +653,7 @@ server <- function(input, output) {
     checkIfDataLoaded()
 
     ## add the df to list
-    ## currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, max_v)
+    ## currentFile$dataList[[currentTrial$trialCounter]] <- select(currentTrial$fitDF, selected, max_v)
 
     currentTrial$chooseMaxV <- TRUE
   })
@@ -502,27 +663,38 @@ server <- function(input, output) {
     checkIfDataLoaded()
 
     # guards: integer, trial out of range
+    if (is.na(as.integer(input$chooseTrialText))) {
+      showNotification("Please enter a number.", type = "error")
+    }
     validate(
       need(
         !is.na(as.integer(input$chooseTrialText)),
-        showNotification("Please enter an integer.", type = "error")
-      ),
+        message = "Please enter an integer."
+      )
+    )
+
+    if (as.integer(input$chooseTrialText) > length(uniqueTrials()) ||
+      as.integer(input$chooseTrialText) < 1) {
+      showNotification("Trial number out of range.", type = "error")
+    }
+    validate(
       need(
-        as.integer(input$chooseTrialText) <= length(uniqueTrials()) && as.integer(input$chooseTrialText) > 0,
-        showNotification("Trial out of range.", type = "error")
+        as.integer(input$chooseTrialText) <= length(uniqueTrials()) &&
+          as.integer(input$chooseTrialText) > 0,
+        message = "Trial out of range."
       )
     )
 
     ## add the df to list
-    currentFile$dataList[[currentTrial$counterValue]] <- select(currentTrial$fitDF, selected, max_v)
+    currentFile$dataList[[currentTrial$trialCounter]] <- select(currentTrial$fitDF, selected, max_v)
 
     ## move to trial
-    currentTrial$counterValue <- as.integer(input$chooseTrialText)
+    currentTrial$trialCounter <- as.integer(input$chooseTrialText)
 
     # do things to the trial
-    makeFitDF()
+    add_trial_fitDF()
     make_trialValuesDF()
-    addSelectedCols()
+    addSelectedCols_trial_fitDF()
   })
 
 
@@ -542,7 +714,7 @@ server <- function(input, output) {
   ## PLOTS
 
   output$reachPlot <- renderPlot({
-    if (!is.null(currentFile$df)) {
+    if (!is.null(currentTrial$fitDF)) {
       # read in df
       df <- currentTrial$fitDF
 
@@ -571,7 +743,7 @@ server <- function(input, output) {
         ) +
         coord_fixed() +
         # annotate("text", x = -500, y = 900, size = 8,
-        #          label = paste("Trial: ", currentTrial$counterValue)) +
+        #          label = paste("Trial: ", currentTrial$trialCounter)) +
         theme_minimal() +
         theme(text = element_text(size = 20))
 
@@ -604,7 +776,7 @@ server <- function(input, output) {
   })
 
   output$distPlot <- renderPlot({
-    if (!is.null(currentFile$df)) {
+    if (!is.null(currentTrial$fitDF)) {
       # read in df
       df <- currentTrial$fitDF
 
@@ -627,7 +799,7 @@ server <- function(input, output) {
   })
 
   output$velPlot <- renderPlot({
-    if (!is.null(currentFile$df)) {
+    if (!is.null(currentTrial$fitDF)) {
 
       # read in df
       df <- currentTrial$fitDF
@@ -665,28 +837,44 @@ server <- function(input, output) {
   ##  Text
 
   output$currentFileTxt <- renderText({
-    if (!is.null(currentFile$df)) {
-      paste("<font size=4>", currentFile$filePath, "  ", "<b>", currentFile$fileNum,
+    if (!is.null(currentTrial$fitDF)) {
+      paste("<font size=4>", currentFile$filePath,
+        "  ", "<b>", currentFile$fileNum,
         "/", length(allFiles$inFile$datapath), "</font> </b>",
         sep = ""
       )
     } else {
-      paste("Please choose files to select, and run selection.")
+      paste("Please choose files to select, then click the start button.")
     }
   })
 
-  output$currentTrialTxt <- renderText({
-    if (!is.null(currentFile$df)) {
-      paste("<b> <font size=4>", currentTrial$counterValue, "/",
-        length(uniqueTrials()), "</font> </b>",
+  output$infoTxt <- renderText({
+    if (!is.null(currentTrial$fitDF)) {
+      paste("<b> <font size=4> ",
+        " Trial: ", currentTrial$trialCounter,
+        "  Step: ", currentTrial$stepCounter, "/", length(uniqueSteps()),
+        " </font> </b>",
         sep = ""
       )
     }
   })
+  output$keptStatusTxt <- renderText({
+    if (!is.null(currentTrial$fitDF)) {
+      if (currentTrial$fitDF$selected[1] == 1) {
+        paste("<b> <font color=\"#269148\" size=4> KEPT </font> </b>",
+          sep = ""
+        )
+      } else {
+        paste("<b> <font color=\"#8c3331\" size=4> DELETED </font> </b>",
+          sep = ""
+        )
+      }
+    }
+  })
 
   output$trialsSelectedTxt <- renderText({
-    if (!is.null(currentFile$df)) {
-      numSelected <- length(Filter(Negate(is.null), currentFile$dataList))
+    if (!is.null(currentTrial$fitDF)) {
+      numSelected <- length(currentFile$done_trial_list) - 1
 
       if (numSelected == length(uniqueTrials())) {
         showNotification("All trials selected!", type = "message")
@@ -704,19 +892,7 @@ server <- function(input, output) {
     }
   })
 
-  output$keepStatusTxt <- renderText({
-    if (!is.null(currentFile$df)) {
-      if (currentTrial$fitDF$selected[1] == 1) {
-        paste("<b> <font color=\"#269148\" size=4> KEPT </font> </b>",
-          sep = ""
-        )
-      } else {
-        paste("<b> <font color=\"#8c3331\" size=4> DELETED </font> </b>",
-          sep = ""
-        )
-      }
-    }
-  })
+  # END OF SERVER
 }
 
 

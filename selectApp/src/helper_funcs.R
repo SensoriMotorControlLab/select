@@ -71,11 +71,10 @@ fix_headers <- function(df, settings_df) {
       mouse_y = settings_df$mouse_y[1],
       time_s = settings_df$time[1]
     )
-  # optional headers
-  home_headers <- c("home_x", "home_y")
+  # optional headers that default to 0
+  home_headers <- c("home_x", "home_y", "step")
   # loop through optional headers
   for (i in home_headers) {
-    # test
     temp_header <- settings_df %>%
       select(!!sym(i))
     temp_header <- as.character(temp_header[1, ])
@@ -93,7 +92,6 @@ fix_headers <- function(df, settings_df) {
   temp_headers <- c("target_x", "target_y", "cursor_x", "cursor_y")
   # loop through optional headers
   for (i in temp_headers) {
-    # test
     temp_header <- settings_df %>%
       select(!!sym(i))
     temp_header <- as.character(temp_header[1, ])
@@ -117,7 +115,7 @@ build_df_from_rows <- function(df) {
   # Should ONLY take required cols (to save space)
   # df should already have correct col names
 
-  rowList <- list()
+  row_list <- list()
   i <- 1
 
   # populate rowlist
@@ -131,7 +129,8 @@ build_df_from_rows <- function(df) {
       trial_df <- data.frame(
         time_s = convert_cell_to_numvec(trial_row$time_s),
         mouse_x = convert_cell_to_numvec(trial_row$mouse_x),
-        mouse_y = convert_cell_to_numvec(trial_row$mouse_y)
+        mouse_y = convert_cell_to_numvec(trial_row$mouse_y),
+        step = convert_cell_to_numvec(trial_row$step)
       )
 
       trial_df$trial_num <- trial_num_temp
@@ -147,16 +146,60 @@ build_df_from_rows <- function(df) {
         trial_df$home_y <- 0
       }
 
-      rowList[[i]] <- trial_df
+      row_list[[i]] <- trial_df
 
       i <- i + 1
       # print(trial_num_temp)
     }
   }
 
-  return(do.call(rbind, rowList))
+  return(do.call(rbind, row_list))
 }
 
+build_df_from_rows_for_saving <- function(df) {
+  # df should already have correct col names
+  # length should match the selected_df length
+
+  row_list <- list()
+  i <- 1
+
+  # populate rowlist
+  for (trial_num_temp in df$trial_num) {
+    if (is.na(trial_num_temp)) {
+      next
+    } else {
+      trial_row <- df %>%
+        filter(trial_num == trial_num_temp)
+
+      trial_df <- data.frame(
+        time_s = convert_cell_to_numvec(trial_row$time_s),
+        mouse_x = convert_cell_to_numvec(trial_row$mouse_x),
+        mouse_y = convert_cell_to_numvec(trial_row$mouse_y),
+        step = convert_cell_to_numvec(trial_row$step)
+      )
+
+      trial_df$trial_num <- trial_num_temp
+
+      # TO DO: populate optional headers
+      # if home_x and home_y exist, populate them
+      if ("home_x" %in% colnames(trial_df)) {
+        trial_df$home_x <- convert_cell_to_numvec(trial_row$home_x)
+        trial_df$home_y <- convert_cell_to_numvec(trial_row$home_y)
+      } else {
+        # if home_x and home_y don't exist, populate them with zeros
+        trial_df$home_x <- 0
+        trial_df$home_y <- 0
+      }
+
+      row_list[[i]] <- trial_df
+
+      i <- i + 1
+      # print(trial_num_temp)
+    }
+  }
+
+  return(do.call(rbind, row_list))
+}
 # get minimum values for plotting
 get_min_val <- function(df) {
   # get min of mouse_x and target_x
@@ -193,6 +236,30 @@ get_max_val <- function(df) {
   }
 
   return(c(max_val_x, max_val_y))
+}
+
+# make fit_df given time_s, mouse_x, mouse_y, home_x, home_y
+make_fitDF <- function(step_df) {
+  # add a distance row
+  step_df$distance <- step_df %>%
+    transmute(mouse_x = mouse_x - home_x, mouse_y + home_y) %>%
+    apply(1, vector_norm)
+
+  # fit a spline to the distance data
+  if (length(unique(step_df$time_s)) >= 4) {
+    fit_fun <- smooth.spline(x = step_df$time_s, y = step_df$distance, df = 7)
+
+    # add a spline column
+    step_df$spline <- predict(fit_fun, step_df$time_s)$y
+
+    # add a speed column
+    step_df$speed <- predict(fit_fun, step_df$time_s, deriv = 1)$y
+  } else {
+    step_df$spline <- 0
+    step_df$speed <- 0
+  }
+
+  return(step_df)
 }
 
 # Functions from SMCL package
