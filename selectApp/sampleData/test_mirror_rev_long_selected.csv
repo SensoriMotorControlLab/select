@@ -1,4 +1,8 @@
+<<<<<<< refs/remotes/origin/master
 step,time_s,mouse_x,mouse_y,cursor_x,cursor_y,home_x,home_y,rotation,participant,targetangle_deg,target_x,target_y,trial_num,trial_correct,selected,max_v
+=======
+step,time_ms,mousex_px,mousey_px,cursorx_px,cursory_px,homex_px,homey_px,rotation,participant,targetangle_deg,targetx_px,targety_px,trial,trial_correct,selected,max_v
+>>>>>>> Viewing and saving collapsed data
 0,0.068115234375,-512,-383,-512,-383,0,0,0,0,7.5,138.802280592333,18.2736669108072,0,,1,0
 0,9.574462890625,-512,-383,-512,-383,0,0,0,0,7.5,138.802280592333,18.2736669108072,0,,1,0
 0,20.86328125,-512,-383,-512,-383,0,0,0,0,7.5,138.802280592333,18.2736669108072,0,,1,0

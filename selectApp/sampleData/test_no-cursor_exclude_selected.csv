@@ -1,4 +1,8 @@
+<<<<<<< refs/remotes/origin/master
 task_num,task_name,trial_type,trial_num,terminalfeedback_bool,rotation_angle,targetangle_deg,targetdistance_percmax,home_x,home_y,target_x,target_y,time_s,mouse_x,mouse_y,cursor_x,cursor_y,step,selected,max_v
+=======
+task_num,task_name,trial_type,trial_num,terminalfeedback_bool,rotation_angle,targetangle_deg,targetdistance_percmax,homex_px,homey_px,targetx_px,targety_px,time_s,mousex_px,mousey_px,cursorx_px,cursory_px,step,selected,max_v
+>>>>>>> Viewing and saving collapsed data
 18,1,1,1,FALSE,-15,135,100,0,0,-395.979797464,395.979797464,0.634588003159,12,-3,10.8146527802,-6.0036060201,0,1,0
 18,1,1,1,FALSE,-15,135,100,0,0,-395.979797464,395.979797464,0.66828584671,12,-2,11.0734718253,-5.03768019381,0,1,0
 18,1,1,1,FALSE,-15,135,100,0,0,-395.979797464,395.979797464,0.701490879059,13,-2,12.0393976516,-5.29649923891,0,1,0

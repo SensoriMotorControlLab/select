@@ -181,7 +181,7 @@ server <- function(input, output) {
     # get the current trial and step
     fitDF <- currentTrialDF() %>%
       filter(step == uniqueSteps()[currentTrial$stepCounter]) %>%
-      select(time_s, mouse_x, mouse_y, home_x, home_y)
+      select(time, mouse_x, mouse_y, home_x, home_y)
 
     # fit distance and speed
     fitDF <- make_fitDF(step_df = fitDF)
@@ -250,8 +250,6 @@ server <- function(input, output) {
     # concatenate the selected columns
     selected_df <- do.call(rbind, map(currentFile$dataList, bind_rows))
 
-    View(selected_df)
-    View(currentFile$df)
     # build expanded df if collapsed
     # otherwise, just use the currentFile$df
     if (currentFile$is_collapsed) {
@@ -259,6 +257,12 @@ server <- function(input, output) {
     } else {
       df <- currentFile$df
     }
+
+    View(globalValues$settingsDF)
+    # revert the headers back to the original ones
+    df <- revert_headers(df, globalValues$settingsDF)
+    View(df)
+
     # add the selected_df columns to df
     selected_df <- cbind2(df, selected_df)
 
@@ -369,7 +373,7 @@ server <- function(input, output) {
           # construct the df first
           temp_df <- currentTrialDF() %>%
             filter(step == uniqueSteps()[step_num]) %>%
-            select(time_s, mouse_x, mouse_y, home_x, home_y)
+            select(time, mouse_x, mouse_y, home_x, home_y)
 
           # assign to dataList
           temp_df <- make_fitDF(step_df = temp_df)
@@ -424,7 +428,7 @@ server <- function(input, output) {
           # construct the df first
           temp_df <- currentTrialDF() %>%
             filter(step == uniqueSteps()[step_num]) %>%
-            select(time_s, mouse_x, mouse_y, home_x, home_y)
+            select(time, mouse_x, mouse_y, home_x, home_y)
 
           # assign to dataList
           temp_df <- make_fitDF(step_df = temp_df)
@@ -589,7 +593,7 @@ server <- function(input, output) {
           filter(trial_num == trialNum)
 
         fitDF <- trialDF %>%
-          select(time_s, mouse_x, mouse_y)
+          select(time, mouse_x, mouse_y)
 
         # add a distance row
         fitDF$distance <- trialDF %>%
@@ -597,13 +601,13 @@ server <- function(input, output) {
           apply(1, vector_norm)
 
         # fit a spline to the distance data
-        fit_fun <- smooth.spline(x = fitDF$time_s, y = fitDF$distance, df = 7)
+        fit_fun <- smooth.spline(x = fitDF$time, y = fitDF$distance, df = 7)
 
         # add a spline column
-        fitDF$spline <- predict(fit_fun, fitDF$time_s)$y
+        fitDF$spline <- predict(fit_fun, fitDF$time)$y
 
         # add a speed column
-        fitDF$speed <- predict(fit_fun, fitDF$time_s, deriv = 1)$y
+        fitDF$speed <- predict(fit_fun, fitDF$time, deriv = 1)$y
 
 
         # do the selection
@@ -642,7 +646,7 @@ server <- function(input, output) {
     # print(paste("x = ", input$velClick$x))
     if (currentTrial$chooseMaxV == TRUE) {
       currentTrial$fitDF$max_v <- 0
-      currentTrial$fitDF$max_v[which.min(abs(currentTrial$fitDF$time_s - input$velClick$x))] <- 1
+      currentTrial$fitDF$max_v[which.min(abs(currentTrial$fitDF$time - input$velClick$x))] <- 1
 
       currentTrial$chooseMaxV <- FALSE
     }
@@ -781,7 +785,7 @@ server <- function(input, output) {
       df <- currentTrial$fitDF
 
       p <- df %>%
-        ggplot(aes(x = time_s, y = distance)) +
+        ggplot(aes(x = time, y = distance)) +
         geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
         geom_line(aes(y = spline), alpha = 0.5, size = 2) +
         geom_point(
@@ -806,7 +810,7 @@ server <- function(input, output) {
 
 
       p <- df %>%
-        ggplot(aes(x = time_s, y = speed)) +
+        ggplot(aes(x = time, y = speed)) +
         geom_line(size = 3, alpha = .5) +
         geom_point(
           data = filter(df, max_v == 1),
@@ -821,7 +825,7 @@ server <- function(input, output) {
       # if (!is.null(input$velClick$x)){
       #   p <- p +
       #     geom_point(aes(x = input$velClick$x,
-      #                    y = filter(df, time_s == input$velClick$x)$speed),
+      #                    y = filter(df, time == input$velClick$x)$speed),
       #                size = 8, colour = "#8c3331", shape = 10,
       #                stroke = 2, alpha = .8)
       # }
