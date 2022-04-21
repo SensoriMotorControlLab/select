@@ -1,6 +1,2 @@
 value_type,trial_num,rotation_angle,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step
-<<<<<<< refs/remotes/origin/master
-name_in_file:,trialNum,,,,,,trialMouse.time,trialMouse.x,trialMouse.y,,,step
-=======
-name_in_file:,trial_num,rotation_angle,homex_px,homey_px,targetx_px,targety_px,time_s,mousex_px,mousey_px,cursorx_px,cursory_px,
->>>>>>> Viewing and saving collapsed data
+name_in_file:,trials.thisN,rotation_deg,,,,,mouse_time,mousex_rel,mousey_rel,,,step
