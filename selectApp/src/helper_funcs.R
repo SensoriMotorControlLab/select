@@ -62,6 +62,29 @@ add_maxv_col <- function(df) {
   return(df)
 }
 
+# add moveStart and moveEnd
+# this should be a column of 0s with 1s in the region of movement
+add_movement_col <- function(df) {
+  # if df doesn't have a max_v column, log an error
+  if (!(colnames(df) %in% "max_v")) {
+    stop("df must have a max_v column")
+  }
+
+  # add movement column
+  df$movement <- 0
+
+  # max_v is the speed where max_v is 1
+  max_v <- df$speed[df$max_v == 1]
+
+  # threshold is max_v * 0.15
+  vel_threshold <- max_v * 0.15
+
+  # set movement to 1 if speed is above threshold
+  df$movement[df$speed > vel_threshold] <- 1
+
+  return(df)
+}
+
 fix_headers <- function(df, settings_df) {
   # required headers
   df <- df %>%

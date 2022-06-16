@@ -21,7 +21,8 @@ server <- function(input, output) {
   currentTrial <- reactiveValues(
     trialCounter = 1, stepCounter = 1,
     fitDF = NULL,
-    chooseMaxV = FALSE, trialValuesDF = NULL
+    chooseMaxV = FALSE, chooseMoveStart = FALSE, chooseMoveEnd = FALSE,
+    trialValuesDF = NULL
   )
   currentFile <- reactiveValues(
     filePath = NULL, fileNum = 1,
@@ -364,7 +365,9 @@ server <- function(input, output) {
         currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
           select(currentTrial$fitDF, selected, max_v)
       } else {
-        if (tryCatch(is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), error = function(e) {
+        if (tryCatch(
+          is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), 
+          error = function(e) {
           return(TRUE)
         })) {
           # above resolves TRUE if dataList is empty at that nested index
@@ -419,7 +422,9 @@ server <- function(input, output) {
         currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
           select(currentTrial$fitDF, selected, max_v)
       } else {
-        if (tryCatch(is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), error = function(e) {
+        if (tryCatch(
+          is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), 
+          error = function(e) {
           return(TRUE)
         })) {
           # above resolves TRUE if dataList is empty at that nested index
@@ -519,16 +524,23 @@ server <- function(input, output) {
     loadSettings()
 
     # get one file for checking colnames
-    currentFile$filePath <- as.character(allFiles$inFile$datapath[currentFile$fileNum])
+    currentFile$filePath <-
+      as.character(allFiles$inFile$datapath[currentFile$fileNum])
     df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
 
     # guard: do headers match settings?
-    if (length(setdiff(as.character(globalValues$settingsDF[1, ]), colnames(df))) > 2) {
-      showNotification("Column names don't match. Please check settings", type = "error")
+    if (length(setdiff(
+      as.character(globalValues$settingsDF[1, ]),
+      colnames(df)
+    )) > 2) {
+      showNotification("Column names don't match. Please check settings",
+        type = "error"
+      )
     }
 
     validate(
-      need(length(setdiff(as.character(globalValues$settingsDF[1, ]), colnames(df))) <= 2,
+      need(length(setdiff(as.character(globalValues$settingsDF[1, ]), 
+      colnames(df))) <= 2,
         message = "Column names don't match. Please check settings"
       )
     )
@@ -646,7 +658,9 @@ server <- function(input, output) {
     # print(paste("x = ", input$velClick$x))
     if (currentTrial$chooseMaxV == TRUE) {
       currentTrial$fitDF$max_v <- 0
-      currentTrial$fitDF$max_v[which.min(abs(currentTrial$fitDF$time - input$velClick$x))] <- 1
+      currentTrial$fitDF$max_v[which.min(
+        abs(
+          currentTrial$fitDF$time - input$velClick$x))] <- 1
 
       currentTrial$chooseMaxV <- FALSE
     }
@@ -690,7 +704,8 @@ server <- function(input, output) {
     )
 
     ## add the df to list
-    currentFile$dataList[[currentTrial$trialCounter]] <- select(currentTrial$fitDF, selected, max_v)
+    currentFile$dataList[[currentTrial$trialCounter]] <- 
+    select(currentTrial$fitDF, selected, max_v)
 
     ## move to trial
     currentTrial$trialCounter <- as.integer(input$chooseTrialText)
@@ -752,7 +767,8 @@ server <- function(input, output) {
         theme(text = element_text(size = 20))
 
       # add target
-      if (currentTrial$trialValuesDF$target_x != 0 || currentTrial$trialValuesDF$target_y != 0) {
+      if (currentTrial$trialValuesDF$target_x != 0 || 
+      currentTrial$trialValuesDF$target_y != 0) {
         p <- p + geom_point(
           data = currentTrial$trialValuesDF,
           aes(x = target_x, y = target_y),
