@@ -74,7 +74,7 @@ ui <- fluidPage(
       ),
       actionButton("runSelectButton",
         "Start Selecting",
-        icon = icon("play-circle")
+        icon = icon("play-circle", verify_fa = FALSE)
       )
     ),
     column(
@@ -132,32 +132,42 @@ ui <- fluidPage(
         icon = icon("thumbs-up"),
         style = "color: #fff; background-color: #2c8236; border-color: #2e6da4"
       ),
-      actionButton("removeButton",
-        "Remove Trial",
+      actionButton("flagButton",
+        "Flag Trial",
         icon = icon("thumbs-down"),
         style = "color: #fff; background-color: #8c3331; border-color: #2e6da4"
       ),
       actionButton("setMaxVButton",
         "Override max velocity",
-        icon = icon("exclamation-triangle"),
+        icon = icon("exclamation-triangle", verify_fa = FALSE),
+        style = "color: #fff; background-color: #d6a333; border-color: #d66c33"
+      ),
+      actionButton("setMoveStartButton",
+        "Override move start",
+        icon = icon("exclamation-triangle", verify_fa = FALSE),
+        style = "color: #fff; background-color: #d6a333; border-color: #d66c33"
+      ),
+      actionButton("setMoveEndButton",
+        "Override move end",
+        icon = icon("exclamation-triangle", verify_fa = FALSE),
         style = "color: #fff; background-color: #d6a333; border-color: #d66c33"
       ),
       br(),
       br(),
       actionButton("saveButton",
         "Save Selected File",
-        icon = icon("save"),
+        icon = icon("save", , verify_fa = FALSE),
         style = "color: #fff; background-color: #337ab7; border-color: #2e6da4"
       ),
       br(),
       hr(),
       actionButton("prevFileButton",
         "Previous File",
-        icon = icon("angle-double-left")
+        icon = icon("angle-double-left", verify_fa = FALSE)
       ),
       actionButton("nextFileButton",
         "Next File",
-        icon = icon("angle-double-right")
+        icon = icon("angle-double-right", verify_fa = FALSE)
       )
       # br(),
       # hr(),

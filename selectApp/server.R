@@ -21,7 +21,7 @@ server <- function(input, output) {
   currentTrial <- reactiveValues(
     trialCounter = 1, stepCounter = 1,
     fitDF = NULL,
-    chooseMaxV = FALSE, chooseMoveStart = FALSE, chooseMoveEnd = FALSE,
+    chooseMaxV = FALSE, chooseMoveStart = FALSE, chooseMoveEnd = FALSE, #toggles
     trialValuesDF = NULL
   )
   currentFile <- reactiveValues(
@@ -126,8 +126,10 @@ server <- function(input, output) {
     # reset the fitDF
     currentTrial$fitDF <- NULL
 
-    # reset the max_v toggle
+    # reset the toggles
     currentTrial$chooseMaxV <- FALSE
+    currentTrial$chooseMoveStart <- FALSE
+    currentTrial$chooseMoveEnd <- FALSE 
 
     # reset the trialValueDF
     currentTrial$trialValuesDF <- NULL
@@ -177,7 +179,7 @@ server <- function(input, output) {
     uniqueSteps
   })
 
-  # make a tibble with time, mousex, mousey, spline, speed, seleted, max_v column
+  # make a tibble with time, mousex, mousey, spline, speed
   add_trial_fitDF <- reactive({
     # get the current trial and step
     fitDF <- currentTrialDF() %>%
@@ -220,11 +222,15 @@ server <- function(input, output) {
         if (is.null(currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]])) {
           df$selected <- 1
           df <- add_maxv_col(df)
+          df <- set_movement_col(df)
+
         } else {
           df$selected <-
             currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]]$selected
           df$max_v <-
             currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]]$max_v
+          df$movement <-
+            currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]]$movement
         }
 
         worked <- TRUE
@@ -236,6 +242,7 @@ server <- function(input, output) {
     if (!worked) {
       df$selected <- 1
       df <- add_maxv_col(df)
+      df <- set_movement_col(df)
     }
 
     currentTrial$fitDF <- df
@@ -259,10 +266,8 @@ server <- function(input, output) {
       df <- currentFile$df
     }
 
-    View(globalValues$settingsDF)
     # revert the headers back to the original ones
     df <- revert_headers(df, globalValues$settingsDF)
-    View(df)
 
     # add the selected_df columns to df
     selected_df <- cbind2(df, selected_df)
@@ -292,7 +297,7 @@ server <- function(input, output) {
 
     currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]] <-
       currentTrial$fitDF %>%
-      select(selected, max_v)
+      select(selected, max_v, movement)
 
     # append current trial to done_trial_list
     # if it's not already there and all steps are done
@@ -324,7 +329,7 @@ server <- function(input, output) {
     # update the dataList at current step
     currentFile$dataList[[currentTrial$trialCounter]][[currentTrial$stepCounter]] <-
       currentTrial$fitDF %>%
-      select(selected, max_v)
+      select(selected, max_v, movement)
 
     # append current trial to done_trial_list
     # if it's not already there and all steps are done
@@ -363,7 +368,7 @@ server <- function(input, output) {
       if (step_num == currentTrial$stepCounter) {
         # add the current step to the list
         currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
-          select(currentTrial$fitDF, selected, max_v)
+          select(currentTrial$fitDF, selected, max_v, movement)
       } else {
         if (tryCatch(
           is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), 
@@ -382,9 +387,10 @@ server <- function(input, output) {
           temp_df <- make_fitDF(step_df = temp_df)
           temp_df$selected <- 1
           temp_df <- add_maxv_col(temp_df)
+          temp_df <- set_movement_col(temp_df)
 
           currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
-            select(temp_df, selected, max_v)
+            select(temp_df, selected, max_v, movement)
         }
       }
     }
@@ -420,7 +426,7 @@ server <- function(input, output) {
       if (step_num == currentTrial$stepCounter) {
         # add the current step to the list
         currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
-          select(currentTrial$fitDF, selected, max_v)
+          select(currentTrial$fitDF, selected, max_v, movement)
       } else {
         if (tryCatch(
           is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), 
@@ -439,9 +445,10 @@ server <- function(input, output) {
           temp_df <- make_fitDF(step_df = temp_df)
           temp_df$selected <- 1
           temp_df <- add_maxv_col(temp_df)
+          temp_df <- set_movement_col(temp_df)
 
           currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
-            select(temp_df, selected, max_v)
+            select(temp_df, selected, max_v, movement)
         }
       }
     }
@@ -580,8 +587,8 @@ server <- function(input, output) {
     currentTrial$fitDF$selected <- 1
   })
 
-  # Remove trial button
-  observeEvent(input$removeButton, {
+  # Flag trial button
+  observeEvent(input$flagButton, {
     checkIfDataLoaded()
 
     currentTrial$fitDF$selected <- 0
@@ -625,10 +632,11 @@ server <- function(input, output) {
         # do the selection
         fitDF$selected <- 1
         fitDF <- add_maxv_col(fitDF)
+        fitDF <- set_movement_col(fitDF)
 
         # add this to list
         trialList[[trialListCounter]] <- fitDF %>%
-          select(selected, max_v)
+          select(selected, max_v, movement)
 
         trialListCounter <- trialListCounter + 1
       }
@@ -655,8 +663,8 @@ server <- function(input, output) {
 
   # change max_v point
   observeEvent(input$velClick, {
-    # print(paste("x = ", input$velClick$x))
-    if (currentTrial$chooseMaxV == TRUE) {
+    print(paste("x = ", input$velClick$x))
+    if (currentTrial$chooseMaxV) {
       currentTrial$fitDF$max_v <- 0
       currentTrial$fitDF$max_v[which.min(
         abs(
@@ -664,16 +672,47 @@ server <- function(input, output) {
 
       currentTrial$chooseMaxV <- FALSE
     }
+    else if (currentTrial$chooseMoveStart) {
+       set_movement_col(currentTrial$fitDF, move_start = TRUE, x = input$velClick$x)
+    }
+    else if (currentTrial$chooseMoveEnd) {
+       set_movement_col(currentTrial$fitDF, move_end = TRUE, x = input$velClick$x)
+    }
   })
 
   # the set max velocity button
   observeEvent(input$setMaxVButton, {
     checkIfDataLoaded()
 
-    ## add the df to list
-    ## currentFile$dataList[[currentTrial$trialCounter]] <- select(currentTrial$fitDF, selected, max_v)
-
     currentTrial$chooseMaxV <- TRUE
+
+    # set all other toggles to false
+    currentTrial$chooseMoveStart <- FALSE
+    currentTrial$chooseMoveEnd <- FALSE
+  })
+
+  # the set movement start button
+  observeEvent(input$setMoveStartButton, {
+    checkIfDataLoaded()
+
+    currentTrial$chooseMoveStart <- TRUE
+
+    # set all other toggles to false
+    currentTrial$chooseMaxV <- FALSE
+    currentTrial$chooseMoveEnd <- FALSE
+
+  })
+
+  # the set movement end button
+  observeEvent(input$setMoveEndButton, {
+    checkIfDataLoaded()
+
+    currentTrial$chooseMoveEnd <- TRUE
+
+    # set all other toggles to false
+    currentTrial$chooseMaxV <- FALSE
+    currentTrial$chooseMoveStart <- FALSE
+
   })
 
   # the go to trial button
@@ -705,7 +744,7 @@ server <- function(input, output) {
 
     ## add the df to list
     currentFile$dataList[[currentTrial$trialCounter]] <- 
-    select(currentTrial$fitDF, selected, max_v)
+    select(currentTrial$fitDF, selected, max_v, movement)
 
     ## move to trial
     currentTrial$trialCounter <- as.integer(input$chooseTrialText)
@@ -739,8 +778,8 @@ server <- function(input, output) {
 
       # plot the reach
       p <- df %>%
-        ggplot(aes(x = mouse_x, y = mouse_y)) +
-        geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
+        ggplot(aes(x = mouse_x, y = mouse_y, colour = movement)) +
+        geom_point(size = 4, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
           size = 6, colour = "#8c3331", shape = 10,
@@ -764,7 +803,8 @@ server <- function(input, output) {
         # annotate("text", x = -500, y = 900, size = 8,
         #          label = paste("Trial: ", currentTrial$trialCounter)) +
         theme_minimal() +
-        theme(text = element_text(size = 20))
+        theme(text = element_text(size = 20)) +
+        theme(legend.position = "none")
 
       # add target
       if (currentTrial$trialValuesDF$target_x != 0 || 
@@ -779,7 +819,7 @@ server <- function(input, output) {
 
       # change background colour
       if (currentTrial$fitDF$selected[1] == 1) {
-        # keep/remove colour
+        # keep/flag colour
         p <- p + theme(panel.background = element_rect(
           fill = "#8fbfa0", colour = "#8fbfa0",
           size = 0.5, linetype = "solid"
@@ -801,9 +841,10 @@ server <- function(input, output) {
       df <- currentTrial$fitDF
 
       p <- df %>%
-        ggplot(aes(x = time, y = distance)) +
-        geom_point(size = 4, colour = "#337ab7", alpha = 0.5) +
-        geom_line(aes(y = spline), alpha = 0.5, size = 2) +
+        ggplot(aes(x = time, y = distance, colour = movement)) +
+        geom_line(aes(y = spline), colour = "grey",
+                      alpha = 0.7, size = 2) +
+        geom_point(size = 4, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
           size = 8, colour = "#8c3331", shape = 10,
@@ -812,7 +853,8 @@ server <- function(input, output) {
         scale_y_continuous(name = "distance from home") +
         scale_x_continuous(name = "time") +
         theme_minimal() +
-        theme(text = element_text(size = 20))
+        theme(text = element_text(size = 20)) +
+        theme(legend.position = "none")
 
       p
     }
@@ -826,8 +868,9 @@ server <- function(input, output) {
 
 
       p <- df %>%
-        ggplot(aes(x = time, y = speed)) +
-        geom_line(size = 3, alpha = .5) +
+        ggplot(aes(x = time, y = speed, colour = movement)) +
+        geom_line(colour = "grey", alpha = 0.7, size = 3) +
+        geom_point(size = 3, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
           size = 8, colour = "#8c3331", shape = 10,
@@ -836,7 +879,8 @@ server <- function(input, output) {
         scale_y_continuous(name = "speed") +
         scale_x_continuous(name = "time") +
         theme_minimal() +
-        theme(text = element_text(size = 20))
+        theme(text = element_text(size = 20)) +
+        theme(legend.position = "none")
 
       # if (!is.null(input$velClick$x)){
       #   p <- p +
@@ -845,7 +889,6 @@ server <- function(input, output) {
       #                size = 8, colour = "#8c3331", shape = 10,
       #                stroke = 2, alpha = .8)
       # }
-
 
       p
     }

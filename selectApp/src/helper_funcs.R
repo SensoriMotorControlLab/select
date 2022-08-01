@@ -39,6 +39,7 @@ vector_norm <- function(vector) {
 
 # add maxV
 add_maxv_col <- function(df) {
+
   df$max_v <- 0
 
   df$max_v[df$time == filter(df, speed == max(speed))[1, ]$time] <- 1
@@ -64,23 +65,78 @@ add_maxv_col <- function(df) {
 
 # add moveStart and moveEnd
 # this should be a column of 0s with 1s in the region of movement
-add_movement_col <- function(df) {
+set_movement_col <- function(df, move_start = FALSE, move_end= FALSE, x = 0) {
   # if df doesn't have a max_v column, log an error
-  if (!(colnames(df) %in% "max_v")) {
+  if (!("max_v" %in% colnames(df))) {
     stop("df must have a max_v column")
   }
 
-  # add movement column
-  df$movement <- 0
+  if (move_start) { # there is already a movement column, x is the TIME
+    
+  } else if (move_end) { # there is already a movement column
 
-  # max_v is the speed where max_v is 1
-  max_v <- df$speed[df$max_v == 1]
+  }
+  else {
+    # add movement column
+    df$movement <- 0
 
-  # threshold is max_v * 0.15
-  vel_threshold <- max_v * 0.15
+    # max_v is the speed where max_v is 1
+    max_v <- df$speed[df$max_v == 1]
 
-  # set movement to 1 if speed is above threshold
-  df$movement[df$speed > vel_threshold] <- 1
+    # threshold is max_v * 0.15
+    vel_threshold <- max_v * 0.15
+
+    # set movement to 1 if speed is above threshold
+    # df <- df %>%
+      # mutate(movement = ifelse(speed > vel_threshold, 1, 
+                              # ifelse(speed < (vel_threshold * -1), 1, 0)))
+
+    # make an empty vector the same length as movement
+    move_vec <- rep(0, length(df$movement))
+    i <- 1
+    move_started <- FALSE
+    move_ended <- FALSE
+
+    # loop through speed
+    for (speed in df$speed) {
+      # if speed is above threshold
+      if (move_started && move_ended) {
+        # set movement to 0
+        move_vec[i] <- 0
+      } 
+      else if (move_started) {
+        if (speed < vel_threshold) {
+          # set the vector to 1
+          move_ended <- TRUE
+          move_vec[i] <- 0
+        } else {
+          # if speed is below threshold
+          # set the vector to 0
+          move_vec[i] <- 1
+        }
+      }
+      else{
+        if (speed > vel_threshold) {
+          # set the vector to 1
+          move_started <- TRUE
+          move_vec[i] <- 1
+        } else {
+          # if speed is below threshold
+          # set the vector to 0
+          move_vec[i] <- 0
+        }
+      }
+      i <- i + 1
+    }
+
+    # set movement to the vector
+    df$movement <- move_vec
+
+    # make movement a factor
+    df <- df %>%
+      mutate(movement = factor(movement))
+    
+  }
 
   return(df)
 }
@@ -283,7 +339,7 @@ get_max_val <- function(df) {
 make_fitDF <- function(step_df) {
   # add a distance row
   step_df$distance <- step_df %>%
-    transmute(mouse_x = mouse_x - home_x, mouse_y + home_y) %>%
+    transmute(mouse_x = mouse_x - home_x, mouse_y - home_y) %>%
     apply(1, vector_norm)
 
   # fit a spline to the distance data
