@@ -17,6 +17,7 @@ server <- function(input, output) {
   ## STORED DATA
 
   debug <- FALSE
+  vel_plot_debug <- TRUE
 
   # note: trial and step counters are NOT the values of the trial and step
   # see the "uniqueTrials" function for use
@@ -39,6 +40,8 @@ server <- function(input, output) {
     lazyMode = FALSE, settingsFilePath = NULL,
     settingsDF = NULL
   )
+  misc_vars <- reactiveValues(move_start_x = 0, move_start_y = 0)
+
   volumes <- c(Home = fs::path_home(), WD = ".", getVolumes()())
 
   clickOpts(id = "velClick", clip = TRUE)
@@ -725,7 +728,7 @@ server <- function(input, output) {
 
   # change max_v point
   observeEvent(input$velClick, {
-    if(debug) {
+    if(debug || vel_plot_debug) {
       print(paste("vel plot x = ", input$velClick$x))
     }
     
@@ -738,15 +741,22 @@ server <- function(input, output) {
       currentTrial$chooseMaxV <- FALSE
     }
     else if (currentTrial$chooseMoveStart) {
-      currentTrial$fitDF <- set_movement_col(currentTrial$fitDF, move_start = TRUE, x = input$velClick$x)
+      misc_vars$move_start_x <- input$velClick$x
 
       currentTrial$chooseMoveStart <- FALSE
       currentTrial$chooseMoveEnd <- TRUE
     }
     else if (currentTrial$chooseMoveEnd) {
-      currentTrial$fitDF <- set_movement_col(currentTrial$fitDF, move_end = TRUE, x = input$velClick$x)
+      misc_vars$move_end_x <- input$velClick$x
+
+      currentTrial$fitDF <- set_movement_col(currentTrial$fitDF, move_start = misc_vars$move_start_x,
+                                            move_end = misc_vars$move_end_x, debug = vel_plot_debug)
 
       currentTrial$chooseMoveEnd <- FALSE
+
+      # reset move_start_x and move_end_x
+      misc_vars$move_start_x <- 0
+      misc_vars$move_end_x <- 0
     }
   })
 

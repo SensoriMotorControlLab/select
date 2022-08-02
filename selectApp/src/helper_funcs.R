@@ -83,41 +83,35 @@ add_maxv_col <- function(df) {
 
 # add moveStart and moveEnd
 # this should be a column of 0s with 1s in the region of movement
-set_movement_col <- function(df, move_start = FALSE, move_end= FALSE, x = 0) {
+set_movement_col <- function(df, move_start = 0, move_end = 0, debug = FALSE) {
   # if df doesn't have a max_v column, log an error
   if (!("max_v" %in% colnames(df))) {
     stop("df must have a max_v column")
   }
 
-  if (move_start) { # there is already a movement column, x is the TIME
+  if (move_start != 0 && move_end != 0) { # there is already a movement column, x is the TIME
     # everything including and after x and before the next 0 should be 1
-    # loop through time
-    i <- 1
-    move_started <- FALSE
-
-    for (t in df$time) {
-      if (move_started && df$movement[i] == 1) {
-        return(df)
-      }
-      else {
-        # if t is greater than x
-        if (t < x) {
-          df$movement[i] <- 0
-        } else if (t >= x) {
-          df$movement[i] <- 1
-          move_started <- TRUE
-        }
-        i <- i + 1
-      }
+    
+    #debug
+    if (debug) {
+      print(paste("move_start:", move_start))
+      print(paste("move_end:", move_end))
+      print(df$movement)
     }
 
-  return(df)  
+    # do
+    df <- df %>%
+          mutate(movement = ifelse(
+            (df$time >= move_start) & (df$time <= move_end),
+            1,
+            0
+          ))
+    # make df$movement a factor
+    df$movement <- factor(df$movement)
 
-  } else if (move_end) { # there is already a movement column
-    # everything after the last 1 and including and before x should be 1
-    df$movement[df$time > x] <- 0
     return(df)
   }
+
   else {
     # add movement column
     df$movement <- 0
@@ -133,7 +127,8 @@ set_movement_col <- function(df, move_start = FALSE, move_end= FALSE, x = 0) {
     vel_threshold <- abs(max_v) * 0.15
 
     # make an empty vector the same length as movement
-    move_vec <- rep(0, length(df$movement))
+    x <- factor(c(0, 1))
+    move_vec <- rep(x, length.out = length(df$movement))
     i <- 1
     move_started <- FALSE
     move_ended <- FALSE
@@ -172,10 +167,6 @@ set_movement_col <- function(df, move_start = FALSE, move_end= FALSE, x = 0) {
 
     # set movement to the vector
     df$movement <- move_vec
-
-    # make movement a factor
-    df <- df %>%
-      mutate(movement = factor(movement))
     
   }
 
@@ -385,7 +376,7 @@ make_fitDF <- function(step_df) {
 
   # fit a spline to the distance data
   if (length(unique(step_df$time)) >= 4) {
-    fit_fun <- smooth.spline(x = step_df$time, y = step_df$distance, df = 7)
+    fit_fun <- smooth.spline(x = step_df$time, y = step_df$distance, df = 10)
 
     # add a spline column
     step_df$spline <- predict(fit_fun, step_df$time)$y
