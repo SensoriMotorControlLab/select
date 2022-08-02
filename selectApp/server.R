@@ -16,6 +16,8 @@ server <- function(input, output) {
   source("src/helper_funcs.R")
   ## STORED DATA
 
+  debug <- FALSE
+
   # note: trial and step counters are NOT the values of the trial and step
   # see the "uniqueTrials" function for use
   currentTrial <- reactiveValues(
@@ -181,6 +183,10 @@ server <- function(input, output) {
 
   # make a tibble with time, mousex, mousey, spline, speed
   add_trial_fitDF <- reactive({
+    if (debug) {
+      print("add_trial_fitDF started")
+    }
+
     # get the current trial and step
     fitDF <- currentTrialDF() %>%
       filter(step == uniqueSteps()[currentTrial$stepCounter]) %>%
@@ -190,10 +196,19 @@ server <- function(input, output) {
     fitDF <- make_fitDF(step_df = fitDF)
 
     currentTrial$fitDF <- fitDF
+
+    if (debug) {
+      print("add_trial_fitDF executed")
+      print(head(fitDF))
+    }
   })
 
   # make a tibble with target location, etc
   make_trialValuesDF <- reactive({
+    if (debug) {
+      print("make_trialValuesDF started")
+    }
+
     temp_trial_values_df <- currentTrialDF()
     # select only the relevant rows
     # if target_x exists, select those values
@@ -207,10 +222,20 @@ server <- function(input, output) {
     }
 
     currentTrial$trialValuesDF <- temp_trial_values_df
+
+    if (debug) {
+      print("make_trialValuesDF executed")
+      print(head(temp_trial_values_df))
+    }
   })
 
 
   addSelectedCols_trial_fitDF <- reactive({
+
+    if (debug) {
+      print("addSelectedCols_trial_fitDF started")
+    }
+
     df <- currentTrial$fitDF
 
     worked <- FALSE
@@ -241,21 +266,44 @@ server <- function(input, output) {
     # if that dataList[[trialCounter]] doesn't exist at all, the above code will not work
     if (!worked) {
       df$selected <- 1
+
+      if(debug) {
+        print("addSelectedCols_trial_fitDF: add max_v initalized")
+      }
+
       df <- add_maxv_col(df)
+
+      if(debug) {
+        print("addSelectedCols_trial_fitDF: set movement initalized")
+      }
+
       df <- set_movement_col(df)
+
+      if(debug) {
+        print("addSelectedCols_trial_fitDF: set movement executed")
+      }
     }
 
     currentTrial$fitDF <- df
+
+    if (debug) {
+      print("addSelectedCols_trial_fitDF executed")
+      print(head(df))
+    }
   })
 
   # save button stuff
   mergeAndSave <- reactive({
+    if (debug) {
+      print("mergeAndSave started")
+    }
+
     pathToSave <- currentFile$filePath %>%
-      str_sub(1, -5)
+      str_sub(1, -5) # removes last 4 characters (".csv or .txt")
 
     pathToSave <- paste(pathToSave, "selected.csv", sep = "_")
 
-    # concatenate the selected columns
+    # concatenate the columns of interest (selected, max_v, movement)
     selected_df <- do.call(rbind, map(currentFile$dataList, bind_rows))
 
     # build expanded df if collapsed
@@ -266,8 +314,18 @@ server <- function(input, output) {
       df <- currentFile$df
     }
 
+    if (debug) {
+      print("mergeAndSave: columns concatenated, expanded df built")
+      print("expanded df:")
+      print(head(df))
+    }
+
     # revert the headers back to the original ones
     df <- revert_headers(df, globalValues$settingsDF)
+
+    if (debug) {
+      print("mergeAndSave: headers reverted")
+    }
 
     # add the selected_df columns to df
     selected_df <- cbind2(df, selected_df)
@@ -275,6 +333,10 @@ server <- function(input, output) {
     # print(pathToSave)
 
     fwrite(selected_df, file = pathToSave)
+
+    if (debug) {
+      print("mergeAndSave executed")
+    }
   })
 
 
@@ -539,7 +601,7 @@ server <- function(input, output) {
     if (length(setdiff(
       as.character(globalValues$settingsDF[1, ]),
       colnames(df)
-    )) > 2) {
+    )) > 3) {
       showNotification("Column names don't match. Please check settings",
         type = "error"
       )
@@ -547,7 +609,7 @@ server <- function(input, output) {
 
     validate(
       need(length(setdiff(as.character(globalValues$settingsDF[1, ]), 
-      colnames(df))) <= 2,
+      colnames(df))) <= 3,
         message = "Column names don't match. Please check settings"
       )
     )
@@ -663,7 +725,10 @@ server <- function(input, output) {
 
   # change max_v point
   observeEvent(input$velClick, {
-    print(paste("x = ", input$velClick$x))
+    if(debug) {
+      print(paste("vel plot x = ", input$velClick$x))
+    }
+    
     if (currentTrial$chooseMaxV) {
       currentTrial$fitDF$max_v <- 0
       currentTrial$fitDF$max_v[which.min(
@@ -673,10 +738,15 @@ server <- function(input, output) {
       currentTrial$chooseMaxV <- FALSE
     }
     else if (currentTrial$chooseMoveStart) {
-       set_movement_col(currentTrial$fitDF, move_start = TRUE, x = input$velClick$x)
+      currentTrial$fitDF <- set_movement_col(currentTrial$fitDF, move_start = TRUE, x = input$velClick$x)
+
+      currentTrial$chooseMoveStart <- FALSE
+      currentTrial$chooseMoveEnd <- TRUE
     }
     else if (currentTrial$chooseMoveEnd) {
-       set_movement_col(currentTrial$fitDF, move_end = TRUE, x = input$velClick$x)
+      currentTrial$fitDF <- set_movement_col(currentTrial$fitDF, move_end = TRUE, x = input$velClick$x)
+
+      currentTrial$chooseMoveEnd <- FALSE
     }
   })
 
@@ -700,18 +770,6 @@ server <- function(input, output) {
     # set all other toggles to false
     currentTrial$chooseMaxV <- FALSE
     currentTrial$chooseMoveEnd <- FALSE
-
-  })
-
-  # the set movement end button
-  observeEvent(input$setMoveEndButton, {
-    checkIfDataLoaded()
-
-    currentTrial$chooseMoveEnd <- TRUE
-
-    # set all other toggles to false
-    currentTrial$chooseMaxV <- FALSE
-    currentTrial$chooseMoveStart <- FALSE
 
   })
 
@@ -913,7 +971,7 @@ server <- function(input, output) {
 
   output$infoTxt <- renderText({
     if (!is.null(currentTrial$fitDF)) {
-      paste("<b> <font size=4> ",
+      paste("<b> <font size=6> ",
         " Trial: ", currentTrial$trialCounter,
         "  Step: ", currentTrial$stepCounter, "/", length(uniqueSteps()),
         " </font> </b>",
@@ -928,7 +986,7 @@ server <- function(input, output) {
           sep = ""
         )
       } else {
-        paste("<b> <font color=\"#8c3331\" size=4> DELETED </font> </b>",
+        paste("<b> <font color=\"#8c3331\" size=4> FLAGGED </font> </b>",
           sep = ""
         )
       }
@@ -953,6 +1011,27 @@ server <- function(input, output) {
         )
       }
     }
+  })
+
+  output$currentSettingsTxt <- renderText({
+      # use the default_settings file if not mannually set
+    if (is.null(globalValues$settingsFilePath)) {
+      settingsDF <- fread("settings/default_settings.txt",
+        stringsAsFactors = FALSE)
+    }
+    else if (as.character(globalValues$settingsFilePath[4]) != "character(0)") {
+      settingsDF <- fread(as.character(globalValues$settingsFilePath[4]),
+        stringsAsFactors = FALSE
+      )
+    } else {
+      settingsDF <- fread("settings/default_settings.txt",
+        stringsAsFactors = FALSE)
+    }
+
+    settings_name <- as.character(settingsDF$settings_name[1])
+    paste("<font size=2>", "Current settings: ", settings_name, "</font> ",
+      sep = ""
+    )
   })
 
   # END OF SERVER

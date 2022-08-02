@@ -1,6 +1,2 @@
-value_type,trial_num,rotation_angle,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step
-<<<<<<< refs/remotes/origin/master
-name_in_file:,trial,rotation,homex_px,homey_px,targetx_px,targety_px,time_ms,mousex_px,mousey_px,cursorx_px,cursory_px,step
-=======
-name_in_file:,trial,,homex_px,homey_px,targetx_px,targety_px,time_ms,mousex_px,mousey_px,cursorx_px,cursory_px,step
->>>>>>> Viewing and saving collapsed data
+settings_name,value_type,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step
+long_eeg_mirror_rev_2022,name_in_file:,trial,homex_px,homey_px,targetx_px,targety_px,time_ms,mousex_px,mousey_px,cursorx_px,cursory_px,step

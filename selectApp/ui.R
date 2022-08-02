@@ -85,6 +85,7 @@ ui <- fluidPage(
     # Show a plot of the generated distances
     column(
       4,
+      htmlOutput("currentSettingsTxt", ),
       div(shinyFilesButton("settingsButton",
         "Choose Settings",
         "Please select a file",
@@ -137,19 +138,16 @@ ui <- fluidPage(
         icon = icon("thumbs-down"),
         style = "color: #fff; background-color: #8c3331; border-color: #2e6da4"
       ),
+      br(),
+      br(),
       actionButton("setMaxVButton",
         "Override max velocity",
         icon = icon("exclamation-triangle", verify_fa = FALSE),
         style = "color: #fff; background-color: #d6a333; border-color: #d66c33"
       ),
       actionButton("setMoveStartButton",
-        "Override move start",
-        icon = icon("exclamation-triangle", verify_fa = FALSE),
-        style = "color: #fff; background-color: #d6a333; border-color: #d66c33"
-      ),
-      actionButton("setMoveEndButton",
-        "Override move end",
-        icon = icon("exclamation-triangle", verify_fa = FALSE),
+        "Set movement start + end",
+        icon = icon("arrow-right-from-bracket", verify_fa = FALSE),
         style = "color: #fff; background-color: #d6a333; border-color: #d66c33"
       ),
       br(),

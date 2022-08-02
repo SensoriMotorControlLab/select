@@ -42,7 +42,25 @@ add_maxv_col <- function(df) {
 
   df$max_v <- 0
 
-  df$max_v[df$time == filter(df, speed == max(speed))[1, ]$time] <- 1
+  # df$max_v[df$time == filter(df, speed == max(speed))[1, ]$time] <- 1
+  i <- 1
+  fastest <- 0
+
+  # loop through speed
+  if (length(df$speed) < 3) {
+        df$max_v <- 0
+        df$max_v[1] <- 1
+  }
+  else {
+    for (v in df$speed) {
+      if (abs(v) > fastest) {
+        fastest <- abs(v)
+        df$max_v <- 0
+        df$max_v[i] <- 1
+      }
+      i <- i + 1
+    }
+  }
 
   # fix maxV if the distance is too small
   if (filter(df, max_v == 1)$distance < max(df$distance) / 10) {
@@ -72,24 +90,47 @@ set_movement_col <- function(df, move_start = FALSE, move_end= FALSE, x = 0) {
   }
 
   if (move_start) { # there is already a movement column, x is the TIME
-    
-  } else if (move_end) { # there is already a movement column
+    # everything including and after x and before the next 0 should be 1
+    # loop through time
+    i <- 1
+    move_started <- FALSE
 
+    for (t in df$time) {
+      if (move_started && df$movement[i] == 1) {
+        return(df)
+      }
+      else {
+        # if t is greater than x
+        if (t < x) {
+          df$movement[i] <- 0
+        } else if (t >= x) {
+          df$movement[i] <- 1
+          move_started <- TRUE
+        }
+        i <- i + 1
+      }
+    }
+
+  return(df)  
+
+  } else if (move_end) { # there is already a movement column
+    # everything after the last 1 and including and before x should be 1
+    df$movement[df$time > x] <- 0
+    return(df)
   }
   else {
     # add movement column
     df$movement <- 0
 
+    # stop if there is no max_v
+    if (!(1 %in% df$max_v)){
+      return(df)
+    }
+
     # max_v is the speed where max_v is 1
-    max_v <- df$speed[df$max_v == 1]
-
+    max_v <- df$speed[df$max_v == 1][1]
     # threshold is max_v * 0.15
-    vel_threshold <- max_v * 0.15
-
-    # set movement to 1 if speed is above threshold
-    # df <- df %>%
-      # mutate(movement = ifelse(speed > vel_threshold, 1, 
-                              # ifelse(speed < (vel_threshold * -1), 1, 0)))
+    vel_threshold <- abs(max_v) * 0.15
 
     # make an empty vector the same length as movement
     move_vec <- rep(0, length(df$movement))
@@ -105,18 +146,18 @@ set_movement_col <- function(df, move_start = FALSE, move_end= FALSE, x = 0) {
         move_vec[i] <- 0
       } 
       else if (move_started) {
-        if (speed < vel_threshold) {
+        if (abs(speed) > vel_threshold) {
           # set the vector to 1
-          move_ended <- TRUE
-          move_vec[i] <- 0
+          move_vec[i] <- 1
         } else {
           # if speed is below threshold
-          # set the vector to 0
-          move_vec[i] <- 1
+          # set the vector to 0         
+          move_ended <- TRUE
+          move_vec[i] <- 0
         }
       }
       else{
-        if (speed > vel_threshold) {
+        if (abs(speed) > vel_threshold) {
           # set the vector to 1
           move_started <- TRUE
           move_vec[i] <- 1
@@ -195,7 +236,7 @@ revert_headers <- function(df, settings_df) {
   # if header in settings_df is not NA
   # rename df header to settings_df[header]
   for (header in colnames(settings_df)) {
-    if (header != "value_type" && !is.na(select(settings_df, !!header)[[1]])) {
+    if (!(header %in% c("value_type", "settings_name")) && !is.na(select(settings_df, !!header)[[1]])) {
       df <- df %>%
         rename(!!select(settings_df, !!header)[[1]] := header)
     }
