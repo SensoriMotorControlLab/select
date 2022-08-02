@@ -650,6 +650,17 @@ server <- function(input, output) {
     checkIfDataLoaded()
 
     currentTrial$fitDF$selected <- 1
+
+    # add the dfs for all steps to dataList
+    steps_in_trial <- seq(length(uniqueSteps())) 
+    # add to dataList
+    for (step_num in steps_in_trial) {
+      if (step_num == currentTrial$stepCounter) {
+        # add the current step to the list
+        currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+          select(currentTrial$fitDF, selected, max_v, movement)
+      }
+    }
   })
 
   # Flag trial button
@@ -657,6 +668,17 @@ server <- function(input, output) {
     checkIfDataLoaded()
 
     currentTrial$fitDF$selected <- 0
+    
+    # add the dfs for all steps to dataList
+    steps_in_trial <- seq(length(uniqueSteps()))
+    # add to dataList
+    for (step_num in steps_in_trial) {
+      if (step_num == currentTrial$stepCounter) {
+        # add the current step to the list
+        currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+          select(currentTrial$fitDF, selected, max_v, movement)
+      }
+    }
   })
 
 
