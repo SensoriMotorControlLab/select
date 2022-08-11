@@ -1,2 +1,2 @@
-settings_name,value_type,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step
-sebastian_online_2022,name_in_file:,trials.thisN,,,,,mouse_time,mousex_rel,mousey_rel,,,step
+settings_name,target_distance,value_type:,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step,target_angle
+sebastian_online_2022,1,name_in_file:,trials.thisN,,,,,mouse_time,mousex_rel,mousey_rel,,,step,target

@@ -17,7 +17,7 @@ server <- function(input, output) {
   ## STORED DATA
 
   debug <- FALSE
-  vel_plot_debug <- TRUE
+  vel_plot_debug <- FALSE
 
   # note: trial and step counters are NOT the values of the trial and step
   # see the "uniqueTrials" function for use
@@ -45,6 +45,10 @@ server <- function(input, output) {
   volumes <- c(Home = fs::path_home(), WD = ".", getVolumes()())
 
   clickOpts(id = "velClick", clip = TRUE)
+
+  # settings headers are the first few headers in settings: these are not in the selected files
+  settings_headers <- c("value_type:", "settings_name", "target_distance")
+
 
   ## ----
   ## FUNCTIONS
@@ -108,7 +112,7 @@ server <- function(input, output) {
     # reset is_collapsed
     currentFile$is_collapsed <- FALSE
 
-    # filter out first tiral from df
+    # filter out first trial from df
     trial1 <- df %>%
       filter(trial_num == uniqueTrials()[1])
 
@@ -209,14 +213,15 @@ server <- function(input, output) {
   # make a tibble with target location, etc
   make_trialValuesDF <- reactive({
     if (debug) {
-      print("make_trialValuesDF started")
+      print("make_trialValuesDF started, currentTrialDF function:")
+      print(head(currentTrialDF()))
     }
 
-    temp_trial_values_df <- currentTrialDF()
+    trial_values_df <- currentTrialDF()
     # select only the relevant rows
     # if target_x exists, select those values
-    if ("target_x" %in% colnames(temp_trial_values_df)) {
-      temp_trial_values_df <- temp_trial_values_df %>%
+    if ("target_x" %in% colnames(trial_values_df)) {
+      temp_trial_values_df <- trial_values_df %>%
         select(target_x, target_y) %>%
         head(1)
     } else {
@@ -225,10 +230,19 @@ server <- function(input, output) {
     }
 
     currentTrial$trialValuesDF <- temp_trial_values_df
+    
+    # if target_angle exists, select those values
+    if ("target_angle" %in% colnames(trial_values_df)) {
+      currentTrial$trialValuesDF$target_angle <- trial_values_df %>%
+        select(target_angle) %>%
+        head(1)
+    } else {
+      currentTrial$trialValuesDF$target_angle <- "NULL"
+    }
 
     if (debug) {
-      print("make_trialValuesDF executed")
-      print(head(temp_trial_values_df))
+      print("make_trialValuesDF executed, trialValuesDF:")
+      print(head(currentTrial$trialValuesDF))
     }
   })
 
@@ -324,7 +338,7 @@ server <- function(input, output) {
     }
 
     # revert the headers back to the original ones
-    df <- revert_headers(df, globalValues$settingsDF)
+    df <- revert_headers(df, globalValues$settingsDF, settings_headers)
 
     if (debug) {
       print("mergeAndSave: headers reverted")
@@ -366,14 +380,14 @@ server <- function(input, output) {
 
     # append current trial to done_trial_list
     # if it's not already there and all steps are done
-    if (length(currentFile$dataList[[currentTrial$trialCounter]]) == length(uniqueSteps())) {
-      if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
-        currentFile$done_trial_list <- c(
-          currentFile$done_trial_list,
-          currentTrial$trialCounter
-        )
-      }
-    }
+#     if (length(currentFile$dataList[[currentTrial$trialCounter]]) == length(uniqueSteps())) {
+      # if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+        # currentFile$done_trial_list <- c(
+          # currentFile$done_trial_list,
+          # currentTrial$trialCounter
+        # )
+      # }
+    # }
 
     ## move to next step
     if (currentTrial$stepCounter == length(uniqueSteps())) {
@@ -398,14 +412,14 @@ server <- function(input, output) {
 
     # append current trial to done_trial_list
     # if it's not already there and all steps are done
-    if (length(currentFile$dataList[[currentTrial$trialCounter]]) == length(uniqueSteps())) {
-      if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
-        currentFile$done_trial_list <- c(
-          currentFile$done_trial_list,
-          currentTrial$trialCounter
-        )
-      }
-    }
+#     if (length(currentFile$dataList[[currentTrial$trialCounter]]) == length(uniqueSteps())) {
+      # if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+        # currentFile$done_trial_list <- c(
+          # currentFile$done_trial_list,
+          # currentTrial$trialCounter
+        # )
+      # }
+    # }
 
     # go to the last trial if the current trial is "1"
     if (currentTrial$stepCounter == 1) {
@@ -604,7 +618,7 @@ server <- function(input, output) {
     if (length(setdiff(
       as.character(globalValues$settingsDF[1, ]),
       colnames(df)
-    )) > 3) {
+    )) > length(settings_headers) + 1) {
       showNotification("Column names don't match. Please check settings",
         type = "error"
       )
@@ -612,7 +626,7 @@ server <- function(input, output) {
 
     validate(
       need(length(setdiff(as.character(globalValues$settingsDF[1, ]), 
-      colnames(df))) <= 3,
+      colnames(df))) <= length(settings_headers) + 1,
         message = "Column names don't match. Please check settings"
       )
     )
@@ -832,9 +846,47 @@ server <- function(input, output) {
       )
     )
 
-    ## add the df to list
-    currentFile$dataList[[currentTrial$trialCounter]] <- 
-    select(currentTrial$fitDF, selected, max_v, movement)
+    ## add the dfs for all steps to dataList
+    steps_in_trial <- seq(length(uniqueSteps()))
+    # loop through steps in the trial
+    for (step_num in steps_in_trial) {
+      if (step_num == currentTrial$stepCounter) {
+        # add the current step to the list
+        currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+          select(currentTrial$fitDF, selected, max_v, movement)
+      } else {
+        if (tryCatch(
+          is.null(currentFile$dataList[[currentTrial$trialCounter]][[step_num]]), 
+          error = function(e) {
+          return(TRUE)
+        })) {
+          # above resolves TRUE if dataList is empty at that nested index
+
+          # add the other steps to the list if they don't exist already
+          # construct the df first
+          temp_df <- currentTrialDF() %>%
+            filter(step == uniqueSteps()[step_num]) %>%
+            select(time, mouse_x, mouse_y, home_x, home_y)
+
+          # assign to dataList
+          temp_df <- make_fitDF(step_df = temp_df)
+          temp_df$selected <- 1
+          temp_df <- add_maxv_col(temp_df)
+          temp_df <- set_movement_col(temp_df)
+
+          currentFile$dataList[[currentTrial$trialCounter]][[step_num]] <-
+            select(temp_df, selected, max_v, movement)
+        }
+      }
+    }
+
+    # append the current trial to done_trial_list if it's not already there
+    if (!(currentTrial$trialCounter %in% currentFile$done_trial_list)) {
+      currentFile$done_trial_list <- c(
+        currentFile$done_trial_list,
+        currentTrial$trialCounter
+      )
+    }
 
     ## move to trial
     currentTrial$trialCounter <- as.integer(input$chooseTrialText)
@@ -872,7 +924,7 @@ server <- function(input, output) {
         geom_point(size = 4, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
-          size = 6, colour = "#8c3331", shape = 10,
+          size = 3, colour = "#8c3331", shape = 2,
           stroke = 2, alpha = .8
         ) +
         scale_y_continuous(
@@ -898,11 +950,29 @@ server <- function(input, output) {
 
       # add target
       if (currentTrial$trialValuesDF$target_x != 0 || 
-      currentTrial$trialValuesDF$target_y != 0) {
+          currentTrial$trialValuesDF$target_y != 0) {
         p <- p + geom_point(
           data = currentTrial$trialValuesDF,
           aes(x = target_x, y = target_y),
-          size = 3, colour = "#d6a333", shape = 19,
+          size = 5, colour = "#cc6206", shape = 10,
+          stroke = 2
+        )
+      } else if ( currentTrial$trialValuesDF$target_angle != 500 &&
+          !is.na(globalValues$settingsDF$target_distance)) {
+        # y is H sin(angle)
+        y <- globalValues$settingsDF$target_distance * sin(currentTrial$trialValuesDF$target_angle * pi / 180)
+        # x is H cos(angle)
+        x <- globalValues$settingsDF$target_distance * cos(currentTrial$trialValuesDF$target_angle * pi / 180)
+
+        target_df <- data.frame(
+          target_x = as.numeric(x),
+          target_y = as.numeric(y)
+        )
+
+        p <- p + geom_point(
+          data = target_df,
+          aes(x = target_x, y = target_y),
+          size = 5, colour = "#cc6206", shape = 10,
           stroke = 2
         )
       }
@@ -937,7 +1007,7 @@ server <- function(input, output) {
         geom_point(size = 4, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
-          size = 8, colour = "#8c3331", shape = 10,
+          size = 3, colour = "#8c3331", shape = 2,
           stroke = 2, alpha = .8
         ) +
         scale_y_continuous(name = "distance from home") +
@@ -963,7 +1033,7 @@ server <- function(input, output) {
         geom_point(size = 3, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
-          size = 8, colour = "#8c3331", shape = 10,
+          size = 3, colour = "#8c3331", shape = 2,
           stroke = 2, alpha = .8
         ) +
         scale_y_continuous(name = "speed") +
@@ -976,7 +1046,7 @@ server <- function(input, output) {
       #   p <- p +
       #     geom_point(aes(x = input$velClick$x,
       #                    y = filter(df, time == input$velClick$x)$speed),
-      #                size = 8, colour = "#8c3331", shape = 10,
+      #                size = 3, colour = "#8c3331", shape = 2,
       #                stroke = 2, alpha = .8)
       # }
 

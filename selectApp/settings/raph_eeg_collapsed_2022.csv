@@ -1,2 +1,2 @@
-settings_name,value_type,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step
-condensed_eeg_mirror_rev_2022,name_in_file:,trialNum,,,,,trialMouse.time,trialMouse.x,trialMouse.y,,,step
+settings_name,target_distance,value_type:,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step,target_angle
+condensed_eeg_mirror_rev_2022,0.4,name_in_file:,trialNum,,,,,trialMouse.time,trialMouse.x,trialMouse.y,,,step,targetangle_deg

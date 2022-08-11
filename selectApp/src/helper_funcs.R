@@ -17,7 +17,6 @@
 ##
 ## --------------------------------
 
-
 # input = a vector
 # works well with group_by %>% summarise()
 vector_confint <- function(vector, interval = 0.95) {
@@ -200,7 +199,7 @@ fix_headers <- function(df, settings_df) {
       df[[i]] <- 0
     }
   }
-  temp_headers <- c("target_x", "target_y", "cursor_x", "cursor_y")
+  temp_headers <- c("target_x", "target_y", "cursor_x", "cursor_y", "target_angle")
   # loop through optional headers
   for (i in temp_headers) {
     temp_header <- settings_df %>%
@@ -223,11 +222,11 @@ fix_headers <- function(df, settings_df) {
 }
 
 # reverts to original headers
-revert_headers <- function(df, settings_df) {
+revert_headers <- function(df, settings_df, settings_headers) {
   # if header in settings_df is not NA
   # rename df header to settings_df[header]
   for (header in colnames(settings_df)) {
-    if (!(header %in% c("value_type", "settings_name")) && !is.na(select(settings_df, !!header)[[1]])) {
+    if (!(header %in% settings_headers) && !is.na(select(settings_df, !!header)[[1]])) {
       df <- df %>%
         rename(!!select(settings_df, !!header)[[1]] := header)
     }
@@ -262,13 +261,21 @@ build_df_from_rows <- function(df) {
 
       # TO DO: populate optional headers
       # if home_x and home_y exist, populate them
-      if ("home_x" %in% colnames(trial_df)) {
+      if ("home_x" %in% colnames(trial_row)) {
         trial_df$home_x <- convert_cell_to_numvec(trial_row$home_x)
         trial_df$home_y <- convert_cell_to_numvec(trial_row$home_y)
       } else {
         # if home_x and home_y don't exist, populate them with zeros
         trial_df$home_x <- 0
         trial_df$home_y <- 0
+      }
+
+      # if target_angle exists, populate it
+      if ("target_angle" %in% colnames(trial_row)) {
+        trial_df$target_angle <- trial_row$target_angle
+      } else {
+        # if target_angle doesn't exist, populate it with zeros
+        trial_df$target_angle <- 500
       }
 
       row_list[[i]] <- trial_df
