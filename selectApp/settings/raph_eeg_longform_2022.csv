@@ -1,2 +1,2 @@
-settings_name,target_distance,value_type:,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step,target_angle
-long_eeg_mirror_rev_2022,,value_type,trial,homex_px,homey_px,targetx_px,targety_px,time_ms,mousex_px,mousey_px,cursorx_px,cursory_px,step,
+settings_name,target_distance,value_type:,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step,target_angle,rotation
+long_eeg_mirror_rev_2022,,value_type,trial,homex_px,homey_px,targetx_px,targety_px,time_ms,mousex_px,mousey_px,cursorx_px,cursory_px,step,,rotation

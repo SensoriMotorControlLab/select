@@ -199,7 +199,8 @@ fix_headers <- function(df, settings_df) {
       df[[i]] <- 0
     }
   }
-  temp_headers <- c("target_x", "target_y", "cursor_x", "cursor_y", "target_angle")
+  temp_headers <- c("target_x", "target_y", "cursor_x", 
+                    "cursor_y", "target_angle", "rotation")
   # loop through optional headers
   for (i in temp_headers) {
     temp_header <- settings_df %>%
@@ -214,7 +215,7 @@ fix_headers <- function(df, settings_df) {
     } else {
       # this header doesn't exist
       # fill this thing with "NA"s
-      df[[i]] <- "NA"
+      df[[i]] <- NULL
     }
   }
 
@@ -276,6 +277,14 @@ build_df_from_rows <- function(df) {
       } else {
         # if target_angle doesn't exist, populate it with zeros
         trial_df$target_angle <- 500
+      }
+
+      # if rotation exists, populate it
+      if ("rotation" %in% colnames(trial_row)) {
+        trial_df$rotation <- trial_row$rotation
+      } else {
+        # if rotation doesn't exist, populate it with zeros
+        trial_df$rotation <- 500
       }
 
       row_list[[i]] <- trial_df
@@ -376,7 +385,7 @@ get_max_val <- function(df) {
 
 # make fit_df given time, mouse_x, mouse_y, home_x, home_y
 make_fitDF <- function(step_df) {
-  # add a distance row
+  # add a distance column
   step_df$distance <- step_df %>%
     transmute(mouse_x = mouse_x - home_x, mouse_y - home_y) %>%
     apply(1, vector_norm)
@@ -393,6 +402,15 @@ make_fitDF <- function(step_df) {
   } else {
     step_df$spline <- 0
     step_df$speed <- 0
+  }
+
+  # if rotation column exists, add rotated mouse_x and mouse_y
+  if ("rotation" %in% colnames(step_df)) {
+    step_df$rotated_mouse_x <- step_df$mouse_x * cos((step_df$rotation * pi /180)) - step_df$mouse_y * sin((step_df$rotation * pi /180))
+    step_df$rotated_mouse_y <- step_df$mouse_x * sin((step_df$rotation * pi /180)) + step_df$mouse_y * cos((step_df$rotation * pi /180))
+  } else {
+    step_df$rotated_mouse_x <- step_df$mouse_x
+    step_df$rotated_mouse_y <- step_df$mouse_y
   }
 
   return(step_df)

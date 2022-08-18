@@ -16,7 +16,7 @@ server <- function(input, output) {
   source("src/helper_funcs.R")
   ## STORED DATA
 
-  debug <- FALSE
+  debug <- TRUE 
   vel_plot_debug <- FALSE
 
   # note: trial and step counters are NOT the values of the trial and step
@@ -188,17 +188,28 @@ server <- function(input, output) {
     uniqueSteps
   })
 
-  # make a tibble with time, mousex, mousey, spline, speed
+  # make a tibble with time, mousex, mousey, spline, speed, and if available, rotation
   add_trial_fitDF <- reactive({
     if (debug) {
       print("add_trial_fitDF started")
     }
 
     # get the current trial and step
-    fitDF <- currentTrialDF() %>%
+    # if "rotation" is in the headers of the df, do this
+    if ("rotation" %in% colnames(currentTrialDF())) {
+      fitDF <- currentTrialDF() %>%
+      filter(step == uniqueSteps()[currentTrial$stepCounter]) %>%
+      select(time, mouse_x, mouse_y, home_x, home_y, rotation)
+    } else {
+      # if "rotation" is not in the headers of the df, do this
+      fitDF <- currentTrialDF() %>%
       filter(step == uniqueSteps()[currentTrial$stepCounter]) %>%
       select(time, mouse_x, mouse_y, home_x, home_y)
+    }
 
+    if (debug) {
+      print("make_fitDF starting")
+    }
     # fit distance and speed
     fitDF <- make_fitDF(step_df = fitDF)
 
@@ -238,6 +249,15 @@ server <- function(input, output) {
         head(1)
     } else {
       currentTrial$trialValuesDF$target_angle <- "NULL"
+    }
+
+    # if rotation exists, select those values
+    if ("rotation" %in% colnames(trial_values_df)) {
+      currentTrial$trialValuesDF$rotation <- trial_values_df %>%
+        select(rotation) %>%
+        head(1)
+    } else {
+      currentTrial$trialValuesDF$rotation <- "NULL"
     }
 
     if (debug) {
@@ -369,6 +389,51 @@ server <- function(input, output) {
   shinyFileChoose(input, "settingsButton",
     roots = volumes, filetypes = c("", "csv")
   )
+
+  # After file is chosen, clicking this sets the currentFile$df to something
+  observeEvent(input$runSelectButton, {
+    # guard: do filepaths exist?
+    if (length(input$files) == 1) {
+      showNotification("Please choose some data to select.", type = "error")
+    }
+
+    validate(
+      need(length(input$files) != 1,
+        message = "Please choose some data to select."
+      )
+    )
+
+    loadFilePaths()
+    loadSettings()
+
+    # get one file for checking colnames
+    currentFile$filePath <-
+      as.character(allFiles$inFile$datapath[currentFile$fileNum])
+    df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
+
+    # guard: do headers match settings?
+    if (length(setdiff(
+      as.character(globalValues$settingsDF[1, ]),
+      colnames(df)
+    )) > length(settings_headers) + 1) {
+      showNotification("Column names don't match. Please check settings",
+        type = "error"
+      )
+    }
+
+    validate(
+      need(length(setdiff(as.character(globalValues$settingsDF[1, ]), 
+      colnames(df))) <= length(settings_headers) + 1,
+        message = "Column names don't match. Please check settings"
+      )
+    )
+
+    # start selecting the new data
+    loadNewFileAndSetDefaults()
+    add_trial_fitDF()
+    make_trialValuesDF()
+    addSelectedCols_trial_fitDF()
+  })
 
   # the "Next Step" button
   observeEvent(input$nextStepButton, {
@@ -583,53 +648,6 @@ server <- function(input, output) {
     } else {
       currentFile$fileNum <- currentFile$fileNum - 1
     }
-
-    # start selecting the new data
-    loadNewFileAndSetDefaults()
-    add_trial_fitDF()
-    make_trialValuesDF()
-    addSelectedCols_trial_fitDF()
-  })
-
-
-  # After file is chosen, clicking this sets the currentFile$df to something
-  observeEvent(input$runSelectButton, {
-
-    # guard: do filepaths exist?
-    if (length(input$files) == 1) {
-      showNotification("Please choose some data to select.", type = "error")
-    }
-
-    validate(
-      need(length(input$files) != 1,
-        message = "Please choose some data to select."
-      )
-    )
-
-    loadFilePaths()
-    loadSettings()
-
-    # get one file for checking colnames
-    currentFile$filePath <-
-      as.character(allFiles$inFile$datapath[currentFile$fileNum])
-    df <- fread(currentFile$filePath, stringsAsFactors = FALSE)
-
-    # guard: do headers match settings?
-    if (length(setdiff(
-      as.character(globalValues$settingsDF[1, ]),
-      colnames(df)
-    )) > length(settings_headers) + 1) {
-      showNotification("Column names don't match. Please check settings",
-        type = "error"
-      )
-    }
-
-    validate(
-      need(length(setdiff(as.character(globalValues$settingsDF[1, ]), 
-      colnames(df))) <= length(settings_headers) + 1,
-        message = "Column names don't match. Please check settings"
-      )
-    )
 
     # start selecting the new data
     loadNewFileAndSetDefaults()
@@ -921,12 +939,6 @@ server <- function(input, output) {
       # plot the reach
       p <- df %>%
         ggplot(aes(x = mouse_x, y = mouse_y, colour = movement)) +
-        geom_point(size = 4, alpha = 0.5) +
-        geom_point(
-          data = filter(df, max_v == 1),
-          size = 3, colour = "#8c3331", shape = 2,
-          stroke = 2, alpha = .8
-        ) +
         scale_y_continuous(
           limits = c(
             currentFile$min_y - (currentFile$max_y - currentFile$min_y) * .1,
@@ -976,6 +988,20 @@ server <- function(input, output) {
           stroke = 2
         )
       }
+
+      # plot rotated_mouse_x and rotated_mouse_y
+      p <- p + geom_line(
+        aes(x = rotated_mouse_x, y = rotated_mouse_y),
+        colour = "white", size = 2,
+      )
+
+      # plot reach and max v
+      p <- p + geom_point(size = 4, alpha = 0.5) +
+        geom_point(
+          data = filter(df, max_v == 1),
+          size = 3, colour = "#8c3331", shape = 2, 
+          stroke = 2
+        ) 
 
       # change background colour
       if (currentTrial$fitDF$selected[1] == 1) {
@@ -1042,14 +1068,31 @@ server <- function(input, output) {
         theme(text = element_text(size = 20)) +
         theme(legend.position = "none")
 
-      # if (!is.null(input$velClick$x)){
-      #   p <- p +
-      #     geom_point(aes(x = input$velClick$x,
-      #                    y = filter(df, time == input$velClick$x)$speed),
-      #                size = 3, colour = "#8c3331", shape = 2,
-      #                stroke = 2, alpha = .8)
-      # }
+      # action indicators
+      if (currentTrial$chooseMaxV || 
+          currentTrial$chooseMoveStart || 
+          currentTrial$chooseMoveEnd) {
+        # make the background colour blue
+        p <- p + theme(panel.background = element_rect(
+          fill = "#e0ecff", colour = "#e0ecff"
+        ))
+        
+        # annotations <- data.frame(
+          # xpos = c(-Inf),
+          # ypos =  c(Inf),
+          # hjustvar = c(-1),
+          # vjustvar = c(0))
+        
+        # annotations$text <- "Choose max velocity by clicking on line below"
+        
+        # # annotate
+        # p <- p + geom_text(data = annotations,
+                           # aes(x = xpos, y = ypos,
+                                # hjust = hjustvar, vjust = vjustvar, 
+                                # label = text, colour = "black"))
+      }
 
+      # display
       p
     }
   })
@@ -1134,6 +1177,29 @@ server <- function(input, output) {
     paste("<font size=2>", "Current settings: ", settings_name, "</font> ",
       sep = ""
     )
+  })
+
+  output$velPlotActionTxt <- renderText({
+    if (!is.null(currentTrial$fitDF)) {
+      if (currentTrial$chooseMaxV) {
+
+        paste("<b>Choose max velocity by clicking on line below</b>",
+          sep = ""
+        )
+      } else if (currentTrial$chooseMoveStart) {
+        paste("<b>Choose start of movement by clicking on line below</b>",
+          sep = ""
+        )
+      } else if (currentTrial$chooseMoveEnd) {
+        paste("<b>Choose end of movement by clicking on line below</b>",
+          sep = ""
+        )
+      } else {
+        paste("<b>Velocity Plot:</b>",
+          sep = ""
+        )
+      }
+    }
   })
 
   # END OF SERVER

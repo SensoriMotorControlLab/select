@@ -57,16 +57,6 @@ ui <- fluidPage(
   fluidRow(
     column(
       4,
-      h3("Current File: "),
-      htmlOutput("currentFileTxt", ),
-      br(),
-      htmlOutput("infoTxt", ),
-      htmlOutput("keptStatusTxt", ),
-      br(),
-      h3("Trials Selected: "),
-      htmlOutput("trialsSelectedTxt", ),
-      br(),
-      br(),
       shinyFilesButton("files",
         "Choose File(s)",
         "Please select a file",
@@ -75,7 +65,15 @@ ui <- fluidPage(
       actionButton("runSelectButton",
         "Start Selecting",
         icon = icon("play-circle", verify_fa = FALSE)
-      )
+      ),
+      h3("Current File: "),
+      htmlOutput("currentFileTxt", ),
+      br(),
+      htmlOutput("infoTxt", ),
+      htmlOutput("keptStatusTxt", ),
+      br(),
+      h3("Trials Selected: "),
+      htmlOutput("trialsSelectedTxt", ),
     ),
     column(
       4,
@@ -85,7 +83,7 @@ ui <- fluidPage(
     # Show a plot of the generated distances
     column(
       4,
-      htmlOutput("currentSettingsTxt", ),
+      div(htmlOutput("currentSettingsTxt"), align = "right"),
       div(shinyFilesButton("settingsButton",
         "Choose Settings",
         "Please select a file",
@@ -100,7 +98,6 @@ ui <- fluidPage(
   fluidRow(
     column(
       4,
-      hr(),
       actionButton("prevStepButton",
         "Previous Step",
         icon = icon("angle-left")
@@ -178,7 +175,8 @@ ui <- fluidPage(
 
     # Show a plot of the generated velocity
     column(
-      7,
+      8,
+      htmlOutput("velPlotActionTxt", ),
       plotOutput("velPlot", click = clickOpts(id = "velClick")),
       tableOutput("contents")
     )
