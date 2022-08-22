@@ -16,7 +16,7 @@ server <- function(input, output) {
   source("src/helper_funcs.R")
   ## STORED DATA
 
-  debug <- TRUE 
+  debug <- FALSE 
   vel_plot_debug <- FALSE
 
   # note: trial and step counters are NOT the values of the trial and step
