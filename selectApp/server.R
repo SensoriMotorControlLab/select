@@ -990,7 +990,7 @@ server <- function(input, output) {
       }
 
       # plot rotated_mouse_x and rotated_mouse_y
-      p <- p + geom_line(
+      p <- p + geom_point(
         aes(x = rotated_mouse_x, y = rotated_mouse_y),
         colour = "white", size = 2,
       )

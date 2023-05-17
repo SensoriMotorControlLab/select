@@ -1,2 +1,2 @@
 settings_name,target_distance,value_type:,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step,target_angle,rotation
-sebastian_online_2022,1,name_in_file:,trials.thisN,,,,,mouse_time,mousex_rel,mousey_rel,,,step,target,rotation_deg
+vr_reaches_localization_2023,0.12,name_in_file:,trial_num,,,,,hand_pos_time_stamp,hand_pos_x,hand_pos_z,,,,target_angle,rotation_size
