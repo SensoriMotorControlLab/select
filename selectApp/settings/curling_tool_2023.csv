@@ -1,0 +1,2 @@
+settings_name,target_distance,value_type:,trial_num,home_x,home_y,target_x,target_y,time,mouse_x,mouse_y,cursor_x,cursor_y,step,target_angle,rotation
+curling_tool_2023,1,name_in_file:,trial_num,,,,,time,ball_path_x,ball_path_z,,,,per_block_targetListToUse,

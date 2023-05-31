@@ -1029,7 +1029,7 @@ server <- function(input, output) {
       p <- df %>%
         ggplot(aes(x = time, y = distance, colour = movement)) +
         geom_line(aes(y = spline), colour = "grey",
-                      alpha = 0.7, size = 2) +
+                      alpha = 0.7, linewidth = 2) +
         geom_point(size = 4, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
@@ -1055,7 +1055,7 @@ server <- function(input, output) {
 
       p <- df %>%
         ggplot(aes(x = time, y = speed, colour = movement)) +
-        geom_line(colour = "grey", alpha = 0.7, size = 3) +
+        geom_line(colour = "grey", alpha = 0.7, linewidth = 3) +
         geom_point(size = 3, alpha = 0.5) +
         geom_point(
           data = filter(df, max_v == 1),
