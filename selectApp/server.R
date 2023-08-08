@@ -941,7 +941,7 @@ server <- function(input, output) {
         ggplot(aes(x = mouse_x, y = mouse_y, colour = movement)) +
         scale_y_continuous(
           limits = c(
-            currentFile$min_y - (currentFile$max_y - currentFile$min_y) * .1,
+            min(currentFile$min_y - (currentFile$max_y - currentFile$min_y) * .1, 0),
             currentFile$max_y + (currentFile$max_y - currentFile$min_y) * .1
           ),
           name = "y-position"

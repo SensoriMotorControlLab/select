@@ -38,7 +38,6 @@ vector_norm <- function(vector) {
 
 # add maxV
 add_maxv_col <- function(df) {
-
   df$max_v <- 0
 
   # df$max_v[df$time == filter(df, speed == max(speed))[1, ]$time] <- 1
@@ -47,10 +46,9 @@ add_maxv_col <- function(df) {
 
   # loop through speed
   if (length(df$speed) < 3) {
-        df$max_v <- 0
-        df$max_v[1] <- 1
-  }
-  else {
+    df$max_v <- 0
+    df$max_v[1] <- 1
+  } else {
     for (v in df$speed) {
       if (abs(v) > fastest) {
         fastest <- abs(v)
@@ -90,8 +88,8 @@ set_movement_col <- function(df, move_start = 0, move_end = 0, debug = FALSE) {
 
   if (move_start != 0 && move_end != 0) { # there is already a movement column, x is the TIME
     # everything including and after x and before the next 0 should be 1
-    
-    #debug
+
+    # debug
     if (debug) {
       print(paste("move_start:", move_start))
       print(paste("move_end:", move_end))
@@ -100,23 +98,21 @@ set_movement_col <- function(df, move_start = 0, move_end = 0, debug = FALSE) {
 
     # do
     df <- df %>%
-          mutate(movement = ifelse(
-            (df$time >= move_start) & (df$time <= move_end),
-            1,
-            0
-          ))
+      mutate(movement = ifelse(
+        (df$time >= move_start) & (df$time <= move_end),
+        1,
+        0
+      ))
     # make df$movement a factor
     df$movement <- factor(df$movement)
 
     return(df)
-  }
-
-  else {
+  } else {
     # add movement column
     df$movement <- 0
 
     # stop if there is no max_v
-    if (!(1 %in% df$max_v)){
+    if (!(1 %in% df$max_v)) {
       return(df)
     }
 
@@ -138,19 +134,17 @@ set_movement_col <- function(df, move_start = 0, move_end = 0, debug = FALSE) {
       if (move_started && move_ended) {
         # set movement to 0
         move_vec[i] <- 0
-      } 
-      else if (move_started) {
+      } else if (move_started) {
         if (abs(speed) > vel_threshold) {
           # set the vector to 1
           move_vec[i] <- 1
         } else {
           # if speed is below threshold
-          # set the vector to 0         
+          # set the vector to 0
           move_ended <- TRUE
           move_vec[i] <- 0
         }
-      }
-      else{
+      } else {
         if (abs(speed) > vel_threshold) {
           # set the vector to 1
           move_started <- TRUE
@@ -166,7 +160,6 @@ set_movement_col <- function(df, move_start = 0, move_end = 0, debug = FALSE) {
 
     # set movement to the vector
     df$movement <- move_vec
-    
   }
 
   return(df)
@@ -190,6 +183,14 @@ fix_headers <- function(df, settings_df) {
     temp_header <- as.character(temp_header[1, ])
     if (temp_header != "NA") {
       # this header exists
+      # if there is a column named i
+      if (i %in% colnames(df)){
+      # remove columns with this header
+        if (i != temp_header) {
+          df <- df %>%
+            select(-i)
+        }
+      }
       # rename temp_header to i
       df <- df %>%
         rename(!!i := all_of(temp_header))
@@ -199,8 +200,10 @@ fix_headers <- function(df, settings_df) {
       df[[i]] <- 0
     }
   }
-  temp_headers <- c("target_x", "target_y", "cursor_x", 
-                    "cursor_y", "target_angle", "rotation")
+  temp_headers <- c(
+    "target_x", "target_y", "cursor_x",
+    "cursor_y", "target_angle", "rotation"
+  )
   # loop through optional headers
   for (i in temp_headers) {
     temp_header <- settings_df %>%
@@ -209,6 +212,14 @@ fix_headers <- function(df, settings_df) {
 
     if (temp_header != "NA") {
       # this header exists
+      # if there is a column named i
+      if (i %in% colnames(df)){
+      # remove columns with this header
+        if (i != temp_header) {
+          df <- df %>%
+            select(-i)
+        }
+      }
       # rename temp_header to i
       df <- df %>%
         rename(!!i := all_of(temp_header))
@@ -348,7 +359,7 @@ build_df_from_rows_for_saving <- function(df) {
 # get minimum values for plotting
 get_min_val <- function(df) {
   # get min of mouse_x and target_x
-  min_val_x <- min(df$mouse_x)
+  min_val_x <- min(df$mouse_x) - min(df$home_x)
   # if target_x column exists
   if ("target_x" %in% colnames(df)) {
     # get min of target_x and min_val
@@ -356,7 +367,7 @@ get_min_val <- function(df) {
   }
 
   # repeat for mouse_y and target_y
-  min_val_y <- min(df$mouse_y)
+  min_val_y <- min(df$mouse_y) - min(df$home_y)
   if ("target_y" %in% colnames(df)) {
     min_val_y <- min(df$target_y, min_val_y)
   }
@@ -367,7 +378,7 @@ get_min_val <- function(df) {
 # get maximum values for plotting
 get_max_val <- function(df) {
   # get max of mouse_x and target_x
-  max_val_x <- max(df$mouse_x)
+  max_val_x <- max(df$mouse_x) + max(df$home_x)
   # if target_x column exists
   if ("target_x" %in% colnames(df)) {
     # get max of target_x and max_val
@@ -375,7 +386,7 @@ get_max_val <- function(df) {
   }
 
   # repeat for mouse_y and target_y
-  max_val_y <- max(df$mouse_y)
+  max_val_y <- max(df$mouse_y) + max(df$home_y)
   if ("target_y" %in% colnames(df)) {
     max_val_y <- max(df$target_y, max_val_y)
   }
@@ -385,9 +396,12 @@ get_max_val <- function(df) {
 
 # make fit_df given time, mouse_x, mouse_y, home_x, home_y
 make_fitDF <- function(step_df) {
+  step_df$mouse_x = step_df$mouse_x - step_df$home_x
+  step_df$mouse_y = step_df$mouse_y - step_df$home_y
+  
   # add a distance column
   step_df$distance <- step_df %>%
-    transmute(mouse_x = mouse_x - home_x, mouse_y - home_y) %>%
+    transmute(mouse_x = mouse_x, mouse_y) %>%
     apply(1, vector_norm)
 
   # fit a spline to the distance data
@@ -406,8 +420,8 @@ make_fitDF <- function(step_df) {
 
   # if rotation column exists, add rotated mouse_x and mouse_y
   if ("rotation" %in% colnames(step_df)) {
-    step_df$rotated_mouse_x <- step_df$mouse_x * cos((step_df$rotation * pi /180)) - step_df$mouse_y * sin((step_df$rotation * pi /180))
-    step_df$rotated_mouse_y <- step_df$mouse_x * sin((step_df$rotation * pi /180)) + step_df$mouse_y * cos((step_df$rotation * pi /180))
+    step_df$rotated_mouse_x <- step_df$mouse_x * cos((step_df$rotation * pi / 180)) - step_df$mouse_y * sin((step_df$rotation * pi / 180))
+    step_df$rotated_mouse_y <- step_df$mouse_x * sin((step_df$rotation * pi / 180)) + step_df$mouse_y * cos((step_df$rotation * pi / 180))
   } else {
     step_df$rotated_mouse_x <- step_df$mouse_x
     step_df$rotated_mouse_y <- step_df$mouse_y
@@ -418,7 +432,6 @@ make_fitDF <- function(step_df) {
 
 # Functions from SMCL package
 convert_cell_to_numvec <- function(v) {
-
   # remove opening square bracket:
   v <- gsub("\\[", replacement = "", x = v)
   # remove closing square bracket:
